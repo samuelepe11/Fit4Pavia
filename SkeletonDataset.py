@@ -15,7 +15,6 @@ from Conv1dNoHybridNetwork import Conv1dNoHybridNetwork
 class SkeletonDataset(Dataset):
     # Define class attributes
     data_fold = "raw_npy/"
-    # data_fold = "raw_npy_light/"
     results_fold = "results/preliminary_analysis/"
     extension = ".skeleton.npy"
 
@@ -384,6 +383,7 @@ class SkeletonDataset(Dataset):
         test_labels = np.asarray(test_labels)
 
         return (train_data, train_labels), (test_data, test_labels)
+
 
 # Main
 if __name__ == "__main__":

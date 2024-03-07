@@ -44,7 +44,7 @@ class NetworkTrainer(Trainer):
             self.net = RNNetwork()
         else:
             # Keras-based networks
-            if net_type in [NetType.CONV1D_NO_HYBRID, NetType.CONV2D_NO_HYBRID]:
+            if net_type == NetType.CONV1D_NO_HYBRID:
                 self.net = Conv1dNoHybridNetwork()
             else:
                 self.net = Conv2dNoHybridNetwork()
@@ -210,12 +210,12 @@ if __name__ == "__main__":
                               train_data=train_data1, test_data=test_data1, epochs=100, lr=0.01)
 
     # Train the model
-    #trainer1.summarize_performance()
-    #trainer1.train(model_name1)
-    #trainer1.summarize_performance(show_process=True)
+    trainer1.summarize_performance()
+    trainer1.train(model_name1)
+    trainer1.summarize_performance(show_process=True)
 
     # Load trained model
-    use_keras1 = True
-    trainer1 = NetworkTrainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
-                                         use_keras=use_keras1)
-    trainer1.summarize_performance(show_process=True)
+    #use_keras1 = True
+    #trainer1 = NetworkTrainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
+    #                                      use_keras=use_keras1)
+    #trainer1.summarize_performance(show_process=True)

@@ -155,8 +155,8 @@ class ApproachesComparator:
         print(self.descr1.upper() + ":")
         print("Test mean accuracy: " + str(round(self.simulator1.mean_test_stats.acc * 100, 2)) + "% >",
               self.simulator1.mean_test_stats.acc_ci)
-        print("Test mean F1-score: " + str(round(self.simulator1.mean_test_stats.acc * 100, 2)) + "% >",
-              self.simulator1.mean_test_stats.acc_ci)
+        print("Test mean F1-score: " + str(round(self.simulator1.mean_test_stats.f1 * 100, 2)) + "% >",
+              self.simulator1.mean_test_stats.f1_ci)
         print(self.descr2.upper() + ":")
         print("Test mean accuracy: " + str(round(self.simulator2.mean_test_stats.acc * 100, 2)) + "% >",
               self.simulator2.mean_test_stats.acc_ci)
@@ -165,6 +165,7 @@ class ApproachesComparator:
         print()
 
         for stat in self.comparable_stats:
+            continue
             print("----------------------------------------------------------------------")
             self.compare_stat(stat)
 
