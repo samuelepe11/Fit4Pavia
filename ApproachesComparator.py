@@ -165,7 +165,6 @@ class ApproachesComparator:
         print()
 
         for stat in self.comparable_stats:
-            continue
             print("----------------------------------------------------------------------")
             self.compare_stat(stat)
 

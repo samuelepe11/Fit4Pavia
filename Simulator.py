@@ -161,7 +161,7 @@ class Simulator:
 
     def divide_dataset(self):
         # Perform a random division
-        if self.feature_file is None:
+        if self.feature_file is None or self.model_type == MLAlgorithmType.KNN_DTW:
             # Read skeleton data
             train_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
                                          group_dict=self.data_group_dict, data_perc=self.train_perc)
@@ -234,37 +234,37 @@ if __name__ == "__main__":
     desired_classes1 = [8, 9]
 
     data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.CONV2D_NO_HYBRID
-    #model_type1 = MLAlgorithmType.MLP
+    # model_type1 = NetType.CONV2D_NO_HYBRID
+    model_type1 = MLAlgorithmType.KNN_DTW
     train_perc1 = 0.7
     n_rep1 = 100
     train_epochs1 = 300
     train_lr1 = 0.01
-    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid"
+    folder_name1 = "patientVSrandom_division_knn_dtw"
     simulator_name1 = "sit_random_division"
 
     feature_file1 = "hand_crafted_features_global.csv"
-    # params1 = [5] # Number of neighbors
+    params1 = [5] # Number of neighbors
     # params1 = [0.5, "rbf"] # Regularization parameter and kernel type (apply default settings for each kernel)
     # params1 = [100, "gini"] # Number of tress and impurity measure
     # params1 = [100]  # Number of estimators
-    params1 = [(64,), 0.01]  # Hidden layer sizes and initial learning rate
+    # params1 = [(64,), 0.01]  # Hidden layer sizes and initial learning rate
 
     # Initialize the simulator
-    simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
-                           working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
-                           model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
-                           train_lr=train_lr1)
     # simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
     #                        working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
-    #                        model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1, params=params1)
+    #                        model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
+    #                        train_lr=train_lr1)
+    simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
+                           working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
+                           model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1, params=params1)
 
     # Load simulator
     #simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
 
     # Run simulation
     simulator1.run_simulation(seed1)
-    simulator1.log_simulation_results()
+    #simulator1.log_simulation_results()
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
     # simulator1.reload_simulation_results()

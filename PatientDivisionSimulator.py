@@ -18,7 +18,7 @@ class PatientDivisionSimulator(Simulator):
 
     def divide_dataset(self):
         # Perform a division per patient
-        if self.feature_file is None:
+        if self.feature_file is None or self.model_type == MLAlgorithmType.KNN_DTW:
             # Read skeleton data
             train_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
                                          group_dict=self.data_group_dict, data_perc=self.train_perc, divide_pt=True)
@@ -51,13 +51,13 @@ if __name__ == "__main__":
     # desired_classes1 = [69, 70]
 
     data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.CONV2D_NO_HYBRID
-    # model_type1 = MLAlgorithmType.MLP
+    # model_type1 = NetType.CONV2D_NO_HYBRID
+    model_type1 = MLAlgorithmType.KNN_DTW
     train_perc1 = 0.7
     n_rep1 = 100
     train_epochs1 = 300
     train_lr1 = 0.01
-    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid"
+    folder_name1 = "patientVSrandom_division_knn_dtw"
     simulator_name1 = "sit_patient_division"
 
     feature_file1 = "hand_crafted_features_global.csv"

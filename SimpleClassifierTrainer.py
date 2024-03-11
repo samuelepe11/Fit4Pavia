@@ -5,13 +5,15 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.model_selection import GridSearchCV
+from tslearn.neighbors import KNeighborsTimeSeriesClassifier
+from tslearn.utils import to_time_series_dataset
 
 from SetType import SetType
 from MLAlgorithmType import MLAlgorithmType
 from FeatureExtractor import FeatureExtractor
 from StatsHolder import StatsHolder
 from Trainer import Trainer
+from SkeletonDataset import SkeletonDataset
 
 
 # Class
@@ -30,20 +32,39 @@ class SimpleClassifierTrainer(Trainer):
             self.model = AdaBoostClassifier(n_estimators=params[0], algorithm="SAMME")
         elif ml_algorithm == MLAlgorithmType.MLP:
             self.model = MLPClassifier(hidden_layer_sizes=params[0], learning_rate_init=params[1])
-        else:
+        elif ml_algorithm == MLAlgorithmType.KNN:
             self.model = KNeighborsClassifier(n_neighbors=params[0])
+        else:
+            # Dynamic Time Warping KNN
+            self.model = KNeighborsTimeSeriesClassifier(n_neighbors=params[0], metric="dtw")
+
+            # Adjust the data
+            self.train_data = self.train_data.min_max_scale()
+            self.test_data = self.test_data.min_max_scale()
+
         self.train_losses.append(float("inf"))
 
     def train(self, filename=None):
         data = self.train_data
-        np.random.shuffle(data)
-        x = data[:, :-1]
-        y = data[:, -1].astype(int)
+
+        if self.ml_algorithm != MLAlgorithmType.KNN_DTW:
+            np.random.shuffle(data)
+            x = data[:, :-1]
+            y = data[:, -1]
+        else:
+            x, y = data
+            combined_data = list(zip(x, y))
+            random.shuffle(combined_data)
+            x, y = zip(*combined_data)
+
+            x = to_time_series_dataset(x)
+            y = np.asarray(y)
+        y = y.astype(int)
         self.model.fit(x, y)
 
         loss = 1 - self.model.score(x, y)
         self.train_losses.append(loss)
-        SimpleClassifierTrainer.save_model(self, filename)
+        SimpleClassifierTrainer.save_model(self, filename, use_keras=False)
 
     def test(self, set_type=SetType.TRAINING):
         if set_type == SetType.TRAINING:
@@ -51,8 +72,14 @@ class SimpleClassifierTrainer(Trainer):
         else:
             data = self.test_data
 
-        x = data[:, :-1]
-        y = data[:, -1].astype(int)
+        if self.ml_algorithm != MLAlgorithmType.KNN_DTW:
+            x = data[:, :-1]
+            y = data[:, -1]
+        else:
+            x, y = data
+            x = to_time_series_dataset(x)
+            y = np.asarray(y)
+        y = y.astype(int)
         prediction = self.model.predict(x)
 
         # Accuracy evaluation
@@ -83,10 +110,9 @@ if __name__ == "__main__":
 
     # Read the data
     data_file = "hand_crafted_features_global.csv"
-    data_matrix = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=data_file)
-    dim = data_matrix.shape[0]
+    data_matrix, dim = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=data_file)
 
-    # Divide the dataset
+    # Divide the dataset for simple ML models
     train_perc = 0.7
     num_train_pt = round(dim * train_perc)
     ind_train = random.sample(range(dim), num_train_pt)
@@ -94,10 +120,16 @@ if __name__ == "__main__":
     ind_test = [i for i in range(dim) if i not in ind_train]
     test_data1 = data_matrix[ind_test, :]
 
+    # Define the data for DTW KNN
+    train_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+                                  group_dict={"C": 2, "R": 2}, data_perc=train_perc)
+    test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+                                 data_names=train_data1.remaining_instances)
+
     # Define the model
     folder_name1 = "tests"
-    model_name1 = "test44"
-    ml_algorithm1 = MLAlgorithmType.KNN
+    model_name1 = "test_dtw"
+    ml_algorithm1 = MLAlgorithmType.KNN_DTW
     params1 = [5] # Number of neighbors
     # params1 = [0.5, "rbf"] # Regularization parameter and kernel type (apply default settings for each kernel)
     # params1 = [100, "gini"] # Number of tress and impurity measure

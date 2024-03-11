@@ -7,6 +7,7 @@ import seaborn as sns
 import torch
 import torch.nn.utils.rnn as rnn_utils
 from torch.utils.data import Dataset
+from tslearn.preprocessing import TimeSeriesScalerMinMax
 
 from Conv1dNoHybridNetwork import Conv1dNoHybridNetwork
 
@@ -333,14 +334,21 @@ class SkeletonDataset(Dataset):
         plt.savefig(img_path, dpi=300)
         plt.close()
 
-    def get_list(self):
+    def get_list(self, to_tensor=True):
         data_list = []
         label_list = []
         for i in range(self.len):
             x, y = self.__getitem__(i)
-            x = torch.tensor(x)
+            if to_tensor:
+                x = torch.tensor(x)
             data_list.append(x)
             label_list.append(y)
+
+        return data_list, label_list
+
+    def min_max_scale(self):
+        data_list, label_list = self.get_list(to_tensor=False)
+        data_list = [TimeSeriesScalerMinMax().fit_transform([seq])[0] for seq in data_list]
 
         return data_list, label_list
 
