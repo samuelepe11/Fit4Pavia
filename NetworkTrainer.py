@@ -4,6 +4,7 @@ import torch.nn as nn
 import random
 import numpy as np
 import keras
+from silence_tensorflow import silence_tensorflow
 
 from LSTMNetwork import LSTMNetwork
 from GRUNetwork import GRUNetwork
@@ -12,6 +13,7 @@ from Conv1dNetwork import Conv1dNetwork
 from Conv2dNetwork import Conv2dNetwork
 from Conv1dNoHybridNetwork import Conv1dNoHybridNetwork
 from Conv2dNoHybridNetwork import Conv2dNoHybridNetwork
+from TCNNetwork import TCNNetwork
 from SetType import SetType
 from NetType import NetType
 from SkeletonDataset import SkeletonDataset
@@ -21,6 +23,7 @@ from Trainer import Trainer
 
 # Class
 class NetworkTrainer(Trainer):
+    keras_networks = [NetType.CONV1D_NO_HYBRID, NetType.CONV2D_NO_HYBRID, NetType.TCN]
 
     def __init__(self, net_type, working_dir, folder_name, train_data, test_data, epochs, lr, batch_size=32):
         super().__init__(working_dir, folder_name, train_data, test_data)
@@ -46,6 +49,8 @@ class NetworkTrainer(Trainer):
             # Keras-based networks
             if net_type == NetType.CONV1D_NO_HYBRID:
                 self.net = Conv1dNoHybridNetwork()
+            elif net_type == NetType.TCN:
+                self.net = TCNNetwork()
             else:
                 self.net = Conv2dNoHybridNetwork()
             # Redefine datasets
@@ -57,7 +62,7 @@ class NetworkTrainer(Trainer):
         self.batch_size = batch_size
         self.lr = lr
 
-        if self.net_type not in [NetType.CONV1D_NO_HYBRID, NetType.CONV2D_NO_HYBRID]:
+        if self.net_type not in self.keras_networks:
             self.criterion = nn.BCELoss()
             self.optimizer = torch.optim.Adam(params=self.net.parameters(), lr=self.lr)
         else:
@@ -75,7 +80,7 @@ class NetworkTrainer(Trainer):
         else:
             net = self.net
 
-        if self.net_type not in [NetType.CONV1D_NO_HYBRID, NetType.CONV2D_NO_HYBRID]:
+        if self.net_type not in self.keras_networks:
             use_keras = False
             net.train()
             temp_train_data = list(self.train_data)
@@ -127,7 +132,7 @@ class NetworkTrainer(Trainer):
             data = self.test_data
             dim = self.test_dim
 
-        if self.net_type not in [NetType.CONV1D_NO_HYBRID, NetType.CONV2D_NO_HYBRID]:
+        if self.net_type not in self.keras_networks:
             net.eval()
             loss = 0
             acc = 0
@@ -189,6 +194,7 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
     torch.backends.cuda.deterministic = True
     keras.utils.set_random_seed(seed)
+    silence_tensorflow()
 
     # Define variables
     working_dir1 = "C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/read_ntu_rgbd/"
@@ -204,10 +210,10 @@ if __name__ == "__main__":
 
     # Define the model
     folder_name1 = "tests"
-    model_name1 = "test2dnohybr"
-    net_type1 = NetType.CONV2D_NO_HYBRID
+    model_name1 = "test2tcn"
+    net_type1 = NetType.TCN
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=100, lr=0.01)
+                              train_data=train_data1, test_data=test_data1, epochs=10, lr=0.01)
 
     # Train the model
     trainer1.summarize_performance()
@@ -215,7 +221,7 @@ if __name__ == "__main__":
     trainer1.summarize_performance(show_process=True)
 
     # Load trained model
-    #use_keras1 = True
-    #trainer1 = NetworkTrainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
-    #                                      use_keras=use_keras1)
-    #trainer1.summarize_performance(show_process=True)
+    use_keras1 = True
+    trainer1 = NetworkTrainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
+                                         use_keras=use_keras1)
+    trainer1.summarize_performance(show_process=True)

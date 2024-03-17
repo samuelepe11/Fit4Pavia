@@ -71,7 +71,11 @@ class ApproachesComparator:
         self.compare_mean(stat_name, norms, same_var)
 
     def verify_normality(self, stat_name, values):
-        _, p_value = shapiro(values)
+        if len(np.unique(values)) == 1:
+            # Avoid issues owed to identical stats values
+            p_value = 1.0
+        else:
+            _, p_value = shapiro(values)
 
         normality = p_value > self.alpha
         if normality:
@@ -86,12 +90,16 @@ class ApproachesComparator:
         arr1 = self.__dict__[stat_name + "1"]
         arr2 = self.__dict__[stat_name + "2"]
 
-        if normality[0] and normality[1]:
-            # Levene test
-            _, p_value = levene(arr1, arr2, center="mean")
+        if len(np.unique(arr1)) == 1 and len(np.unique(arr2)) == 1 and arr1[0] == arr2[0]:
+            # Avoid issues owed to identical stats values
+            p_value = 1.0
         else:
-            # Brown–Forsythe test
-            _, p_value = levene(arr1, arr2, center="median")
+            if normality[0] and normality[1]:
+                # Levene test
+                _, p_value = levene(arr1, arr2, center="mean")
+            else:
+                # Brown–Forsythe test
+                _, p_value = levene(arr1, arr2, center="median")
 
         same_var = p_value > self.alpha
         if same_var:
@@ -115,13 +123,19 @@ class ApproachesComparator:
             else:
                 alternative = "less"
 
-        if normality[0] and normality[1]:
-            # T-test if same variance, Welch's T-test (analog to T-test with Satterhwaite method) otherwise
-            results = ttest_ind(arr1, arr2, equal_var=same_variance, alternative=alternative)
-            p_value = results.pvalue
+        if len(np.unique(arr1)) == 1 and len(np.unique(arr2)) == 1 and arr1[0] == arr2[0]:
+            # Avoid issues owed to identical stats values
+            p_value = 1.0
         else:
-            # Mann-Whitney U rank test
-            _, p_value = mannwhitneyu(arr1, arr2, alternative=alternative, method="auto")
+            if normality[0] and normality[1]:
+                # T-test if same variance, Welch's T-test (analog to T-test with Satterhwaite method) otherwise
+                results = ttest_ind(arr1, arr2, equal_var=same_variance, alternative=alternative)
+                p_value = results.pvalue
+                if np.isnan(p_value):
+                    p_value = 1.0
+            else:
+                # Mann-Whitney U rank test
+                _, p_value = mannwhitneyu(arr1, arr2, alternative=alternative, method="auto")
 
         h = p_value < self.alpha
         if not equality_check:
@@ -252,7 +266,7 @@ if __name__ == "__main__":
     # working_dir1 = "./../"
     sim_name1 = "sit_random_division"
     sim_name2 = "sit_patient_division"
-    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid"
+    folder_name1 = "patientVSrandom_division_tcn"
     alpha1 = 0.05
 
     # Define comparator

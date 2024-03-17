@@ -4,9 +4,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import dill
+import keras
 
 from SetType import SetType
 from StatsHolder import StatsHolder
+from NetType import NetType
+from TCNNetwork import TCNNetwork
 
 
 # Class
@@ -68,7 +71,19 @@ class Trainer:
             if not use_keras:
                 pickle.dump(trainer, file)
             else:
+                if trainer.net_type == NetType.TCN:
+                    # Store the network separately because dill is unable to store TCN layers
+                    file_path_net = file_path.strip(".pt") + "_net.pt"
+                    trainer.net.model.save(file_path_net)
+                    trainer.net = "Empty"
+
                 dill.dump(trainer, file)
+
+                if trainer.net_type == NetType.TCN:
+                    # Restore the network
+                    trainer.net = TCNNetwork()
+                    trainer.net.compile(trainer.optimizer, trainer.criterion)
+                    trainer.net.model.load_weights(file_path_net)
 
             print("'" + model_name + ".pt' has been successfully saved!... train loss: " +
                   str(np.round(trainer.train_losses[0], 4)) + " -> " + str(np.round(trainer.train_losses[-1], 4)))
@@ -81,4 +96,13 @@ class Trainer:
                 network_trainer = pickle.load(file)
             else:
                 network_trainer = dill.load(file)
+
+                if network_trainer.net_type == NetType.TCN:
+                    # Overcome issues related to separation of model and trainer during saving
+                    file_path_net = filepath.strip(".pt") + "_net.pt"
+                    network_trainer.net = TCNNetwork()
+                    network_trainer.net.compile(keras.optimizers.Adam(learning_rate=0.01), keras.losses.BinaryCrossentropy())
+                    x, y = network_trainer.train_data
+                    network_trainer.net.train(x, y, 1, 1)
+                    network_trainer.net.model.load_weights(file_path_net)
         return network_trainer

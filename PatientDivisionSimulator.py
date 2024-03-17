@@ -51,21 +51,21 @@ if __name__ == "__main__":
     # desired_classes1 = [69, 70]
 
     data_group_dict1 = {"C": 2, "R": 2}
-    # model_type1 = NetType.CONV2D_NO_HYBRID
-    model_type1 = MLAlgorithmType.KNN_DTW
+    model_type1 = NetType.TCN
+    # model_type1 = MLAlgorithmType.KNN_DTW
     train_perc1 = 0.7
     n_rep1 = 100
     train_epochs1 = 300
     train_lr1 = 0.01
-    folder_name1 = "patientVSrandom_division_knn_dtw"
+    folder_name1 = "patientVSrandom_division_tcn"
     simulator_name1 = "sit_patient_division"
 
     feature_file1 = "hand_crafted_features_global.csv"
-    # params1 = [5] # Number of neighbors
+    params1 = [5] # Number of neighbors
     # params1 = [0.5, "rbf"] # Regularization parameter and kernel type (apply default settings for each kernel)
     # params1 = [100, "gini"] # Number of tress and impurity measure
     # params1 = [100]  # Number of estimators
-    params1 = [(64,), 0.01]  # Hidden layer sizes and initial learning rate
+    # params1 = [(64,), 0.01]  # Hidden layer sizes and initial learning rate
 
     # Initialize the simulator
     simulator1 = PatientDivisionSimulator(desired_classes=desired_classes1, n_rep=n_rep1,
@@ -78,9 +78,8 @@ if __name__ == "__main__":
     #                                       folder_name=folder_name1, data_group_dict=data_group_dict1,
     #                                       model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1,
     #                                       params=params1)
-
     # Load simulator
-    #simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
+    # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
 
     # Run simulation
     simulator1.run_simulation(seed1)

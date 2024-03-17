@@ -6,6 +6,7 @@ import pickle
 import numpy as np
 import scipy
 import keras
+from silence_tensorflow import silence_tensorflow
 
 from NetworkTrainer import NetworkTrainer
 from SetType import SetType
@@ -34,7 +35,7 @@ class Simulator:
         self.data_group_dict = data_group_dict
 
         self.model_type = model_type
-        if model_type in [NetType.CONV1D_NO_HYBRID, NetType.CONV2D_NO_HYBRID]:
+        if model_type in NetworkTrainer.keras_networks:
             self.use_keras = True
         else:
             self.use_keras = False
@@ -64,6 +65,7 @@ class Simulator:
         torch.manual_seed(seed)
         torch.backends.cuda.deterministic = True
         keras.utils.set_random_seed(seed)
+        silence_tensorflow()
 
         for i in range(self.n_rep):
             # Divide the dataset: if feature
@@ -96,6 +98,7 @@ class Simulator:
             trainer = Trainer.load_model(self.working_dir, self.folder_name, self.simulator_name + "/" +
                                          file.removesuffix(".pt"), self.use_keras)
             self.store_model_results(trainer)
+            print("Information associated to " + file + " updated!")
 
     def log_simulation_results(self):
         # Handle some test versions
@@ -107,6 +110,9 @@ class Simulator:
             self.results_dir = self.working_dir + self.results_dir.removeprefix("./../")
 
         n_trials = len(os.listdir(self.results_dir + self.simulator_name))
+        if self.model_type == NetType.TCN:
+            n_trials = int(n_trials / 2)
+
         with open(self.results_dir + self.simulator_name + "_log.csv", "w") as f:
             f.write("run_id; dim_train; dim_test; train_acc; test_acc; train_f1; test_f1\n")
             train_dims = []
@@ -123,7 +129,16 @@ class Simulator:
 
                 train_data = trainer.train_data
                 test_data = trainer.test_data
-                if self.use_keras:
+
+                try:
+                    if self.use_keras:
+                        train_data, _ = train_data
+                        test_data, _ = test_data
+                except:
+                    # The class has been defined and saved before the introduction of use_keras
+                    self.use_keras = False
+
+                if type(train_data) is tuple:
                     train_data, _ = train_data
                     test_data, _ = test_data
 
@@ -156,6 +171,7 @@ class Simulator:
         # Print 95% confidence intervals
         print("CIs on the training set:")
         self.mean_train_stats.print_ci(ci_alpha)
+        print()
         print("CIs on the test set:")
         self.mean_test_stats.print_ci(ci_alpha)
 
@@ -204,8 +220,12 @@ class Simulator:
 
     @staticmethod
     def assess_correlation(list_x, list_y, name_x, name_y, alpha):
-        corr_mat = np.corrcoef(np.asarray(list_x), np.asarray(list_y))
-        corr = corr_mat[0, 1]
+        if len(np.unique(list_y)) == 1:
+            # Avoid issues related to identical output stats
+            corr = 0.0
+        else:
+            corr_mat = np.corrcoef(np.asarray(list_x), np.asarray(list_y))
+            corr = corr_mat[0, 1]
 
         if not np.isnan(corr):
             print("Pearson's correlation coefficient between " + name_x + " and " + name_y + ":", corr)
@@ -234,13 +254,13 @@ if __name__ == "__main__":
     desired_classes1 = [8, 9]
 
     data_group_dict1 = {"C": 2, "R": 2}
-    # model_type1 = NetType.CONV2D_NO_HYBRID
-    model_type1 = MLAlgorithmType.KNN_DTW
+    model_type1 = NetType.TCN
+    # model_type1 = MLAlgorithmType.KNN_DTW
     train_perc1 = 0.7
     n_rep1 = 100
     train_epochs1 = 300
     train_lr1 = 0.01
-    folder_name1 = "patientVSrandom_division_knn_dtw"
+    folder_name1 = "patientVSrandom_division_tcn"
     simulator_name1 = "sit_random_division"
 
     feature_file1 = "hand_crafted_features_global.csv"
@@ -251,20 +271,20 @@ if __name__ == "__main__":
     # params1 = [(64,), 0.01]  # Hidden layer sizes and initial learning rate
 
     # Initialize the simulator
-    # simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
-    #                        working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
-    #                        model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
-    #                        train_lr=train_lr1)
     simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
                            working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
-                           model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1, params=params1)
+                           model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
+                           train_lr=train_lr1)
+    # simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
+    #                        working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
+    #                        model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1, params=params1)
 
     # Load simulator
-    #simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
+    # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
 
     # Run simulation
     simulator1.run_simulation(seed1)
-    #simulator1.log_simulation_results()
+    simulator1.log_simulation_results()
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
     # simulator1.reload_simulation_results()

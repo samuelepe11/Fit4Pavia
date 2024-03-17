@@ -39,11 +39,12 @@ class StatsHolder:
                 continue
 
             # Ignore not-probability values
-            if attribute_name == "mcc" or np.floor(attribute_value) != 0:
+            if attribute_name == "mcc" or (np.floor(attribute_value) != 0 and attribute_value != 1.0):
                 continue
 
             ci = StatsHolder.compute_ci(phat=attribute_value, n_vals=self.n_vals, ci_alpha=ci_alpha)
             temp_dict[attribute_name + "_ci"] = ci
+            print(attribute_name, ci)
             print(" > " + attribute_name + ": [" + str(ci[0]) + "; " + str(ci[1]) + "]")
         self.__dict__.update(temp_dict)
 
@@ -100,19 +101,27 @@ class StatsHolder:
 
     @staticmethod
     def get_stats_lists(stats_list):
-        loss = np.array([x.loss for x in stats_list])
-        acc = np.array([x.acc for x in stats_list])
-        tp = np.array([x.tp for x in stats_list])
-        tn = np.array([x.tn for x in stats_list])
-        fp = np.array([x.fp for x in stats_list])
-        fn = np.array([x.fn for x in stats_list])
-        sens = np.array([x.sens for x in stats_list])
-        spec = np.array([x.spec for x in stats_list])
-        precis = np.array([x.precis for x in stats_list])
-        f1 = np.array([x.f1 for x in stats_list])
-        mcc = np.array([x.mcc for x in stats_list])
+        loss = StatsHolder.get_stat_list("loss", stats_list)
+        acc = StatsHolder.get_stat_list("acc", stats_list)
+        tp = StatsHolder.get_stat_list("tp", stats_list)
+        tn = StatsHolder.get_stat_list("tn", stats_list)
+        fp = StatsHolder.get_stat_list("fp", stats_list)
+        fn = StatsHolder.get_stat_list("fn", stats_list)
+        sens = StatsHolder.get_stat_list("sens", stats_list)
+        spec = StatsHolder.get_stat_list("spec", stats_list)
+        precis = StatsHolder.get_stat_list("precis", stats_list)
+        f1 = StatsHolder.get_stat_list("f1", stats_list)
+        mcc = StatsHolder.get_stat_list("mcc", stats_list)
 
         return loss, acc, tp, tn, fp, fn, sens, spec, precis, f1, mcc
+
+    @staticmethod
+    def get_stat_list(stat_name, stats_list):
+        stat = np.array([x.__dict__[stat_name] for x in stats_list])
+
+        # Avoid issues related to the use of eps in the denominator for the computation of some statistics
+        stat = np.round(stat, 6)
+        return stat
 
 
 # Main

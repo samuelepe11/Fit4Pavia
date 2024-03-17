@@ -121,15 +121,16 @@ if __name__ == "__main__":
     test_data1 = data_matrix[ind_test, :]
 
     # Define the data for DTW KNN
+    '''
     train_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
                                   group_dict={"C": 2, "R": 2}, data_perc=train_perc)
     test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
                                  data_names=train_data1.remaining_instances)
-
+    '''
     # Define the model
     folder_name1 = "tests"
     model_name1 = "test_dtw"
-    ml_algorithm1 = MLAlgorithmType.KNN_DTW
+    ml_algorithm1 = MLAlgorithmType.KNN
     params1 = [5] # Number of neighbors
     # params1 = [0.5, "rbf"] # Regularization parameter and kernel type (apply default settings for each kernel)
     # params1 = [100, "gini"] # Number of tress and impurity measure
