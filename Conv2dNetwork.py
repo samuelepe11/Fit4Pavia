@@ -7,12 +7,16 @@ from Conv1dNetwork import Conv1dNetwork
 # Class
 class Conv2dNetwork(Conv1dNetwork):
 
-    # Define class attributes
-    num_conv_layers = 2
-    hidden_dim = 64
+    def __init__(self, output_neurons=1):
+        super(Conv2dNetwork, self).__init__(output_neurons)
 
-    def __init__(self):
-        super(Conv2dNetwork, self).__init__()
+        # Define attributes
+        if self.output_neurons == 1:
+            self.num_conv_layers = 2
+            self.hidden_dim = 64
+        else:
+            print("TODO")
+
         # Layers
         new_channels = self.in_channels
         for i in range(self.num_conv_layers):
@@ -22,3 +26,4 @@ class Conv2dNetwork(Conv1dNetwork):
 
         self.rnn = nn.RNN(input_size=new_channels, hidden_size=self.hidden_dim, num_layers=self.num_rnn_layers,
                           batch_first=True)
+        self.fc = nn.Linear(self.hidden_dim, out_features=self.output_neurons)

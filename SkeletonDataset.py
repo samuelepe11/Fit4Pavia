@@ -396,8 +396,7 @@ class SkeletonDataset(Dataset):
 # Main
 if __name__ == "__main__":
     # Define variables
-    working_dir1 = "C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/read_ntu_rgbd/"
-    # working_dir1 = "./../"
+    working_dir1 = "./../"
     desired_classes1 = [8, 9]
     # desired_classes1 = [69, 70]
 

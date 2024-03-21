@@ -9,12 +9,16 @@ from Conv1dNoHybridNetwork import Conv1dNoHybridNetwork
 # Class
 class Conv2dNoHybridNetwork(Conv1dNoHybridNetwork):
 
-    # Define class attributes
-    num_conv_layers = 3
+    def __init__(self, output_neurons=1):
+        super().__init__(output_neurons)
 
-    def __init__(self):
-        super().__init__()
+        # Define attributes
         self.conv2_flag = True
+        self.output_neurons = output_neurons
+        if output_neurons == 1:
+            self.num_conv_layers = 3
+        else:
+            print("TODO")
 
         # Layers
         self.model = Sequential()

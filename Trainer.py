@@ -100,6 +100,9 @@ class Trainer:
                 if network_trainer.net_type == NetType.TCN:
                     # Overcome issues related to separation of model and trainer during saving
                     file_path_net = filepath.strip(".pt") + "_net.pt"
+                    if filepath.startswith(".") and not file_path_net.startswith("."):
+                        # Strip removes the starting "." from the string along with the extension
+                        file_path_net = "." + file_path_net
                     network_trainer.net = TCNNetwork()
                     network_trainer.net.compile(keras.optimizers.Adam(learning_rate=0.01), keras.losses.BinaryCrossentropy())
                     x, y = network_trainer.train_data

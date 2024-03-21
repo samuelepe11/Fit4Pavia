@@ -262,11 +262,10 @@ class ApproachesComparator:
 # Main
 if __name__ == "__main__":
     # Define variables
-    working_dir1 = "C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/read_ntu_rgbd/"
-    # working_dir1 = "./../"
+    working_dir1 = "./../"
     sim_name1 = "sit_random_division"
     sim_name2 = "sit_patient_division"
-    folder_name1 = "patientVSrandom_division_tcn"
+    folder_name1 = "patientVSrandom_division_lstm"
     alpha1 = 0.05
 
     # Define comparator

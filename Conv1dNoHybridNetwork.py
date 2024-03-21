@@ -8,16 +8,27 @@ from keras.layers import Masking, Conv1D, MaxPooling1D, Flatten, Dense
 class Conv1dNoHybridNetwork:
 
     # Define class attributes
-    layer_dims = [16, 32]
-    hidden_dim = 32
     mask_value = 0.0
 
-    def __init__(self):
+    def __init__(self, output_neurons=1):
+
+        # Define attributes
+        self.output_neurons = output_neurons
+        if output_neurons == 1:
+            self.layer_dims = [16, 32]
+            self.hidden_dim = 32
+        else:
+            print("TODO")
+
         # Layers
         self.conv2_flag = False
         self.mask = Masking(mask_value=self.mask_value)
         self.flat = Flatten()
-        self.dense = Dense(1, activation="sigmoid")
+        if self.output_neurons == 1:
+            activation = "sigmoid"
+        else:
+            activation = "softmax"
+        self.dense = Dense(self.output_neurons, activation=activation)
 
         self.model = Sequential()
         self.model.add(self.mask)
@@ -38,6 +49,10 @@ class Conv1dNoHybridNetwork:
         return history
 
     def predict(self, x):
+        # Handle previous versions of the Conv1dNoHybridNetwork class (no conv2_flag attribute)
+        if "conv2_flag" not in self.__dict__.keys():
+            self.conv2_flag = False
+
         if self.conv2_flag:
             x = np.expand_dims(x, 3)
 

@@ -19,23 +19,29 @@ from SkeletonDataset import SkeletonDataset
 # Class
 class SimpleClassifierTrainer(Trainer):
 
-    def __init__(self, ml_algorithm, working_dir, folder_name, train_data, test_data, params):
+    def __init__(self, ml_algorithm, working_dir, folder_name, train_data, test_data):
         super().__init__(working_dir, folder_name, train_data, test_data)
 
         # Initialize attributes
         self.ml_algorithm = ml_algorithm
         if ml_algorithm == MLAlgorithmType.SVM:
+            params = [0.5, "rbf"]  # Regularization parameter and kernel type (apply default settings for each kernel)
             self.model = SVC(C=params[0], kernel=params[1])
         elif ml_algorithm == MLAlgorithmType.RF:
+            params = [100, "gini"]  # Number of tress and impurity measure
             self.model = RandomForestClassifier(n_estimators=params[0], criterion=params[1])
         elif ml_algorithm == MLAlgorithmType.AB:
+            params = [100]  # Number of estimators
             self.model = AdaBoostClassifier(n_estimators=params[0], algorithm="SAMME")
         elif ml_algorithm == MLAlgorithmType.MLP:
+            params = [(64,), 0.01]  # Hidden layer sizes and initial learning rate
             self.model = MLPClassifier(hidden_layer_sizes=params[0], learning_rate_init=params[1])
         elif ml_algorithm == MLAlgorithmType.KNN:
+            params = [5]  # Number of neighbors
             self.model = KNeighborsClassifier(n_neighbors=params[0])
         else:
             # Dynamic Time Warping KNN
+            params = [5]  # Number of neighbors
             self.model = KNeighborsTimeSeriesClassifier(n_neighbors=params[0], metric="dtw")
 
             # Adjust the data
@@ -104,8 +110,7 @@ if __name__ == "__main__":
     random.seed(seed)
 
     # Define variables
-    working_dir1 = "C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/read_ntu_rgbd/"
-    # working_dir1 = "./../"
+    working_dir1 = "./../"
     desired_classes1 = [8, 9]
 
     # Read the data
@@ -120,30 +125,27 @@ if __name__ == "__main__":
     ind_test = [i for i in range(dim) if i not in ind_train]
     test_data1 = data_matrix[ind_test, :]
 
-    # Define the data for DTW KNN
-    '''
-    train_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
-                                  group_dict={"C": 2, "R": 2}, data_perc=train_perc)
-    test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
-                                 data_names=train_data1.remaining_instances)
-    '''
     # Define the model
     folder_name1 = "tests"
-    model_name1 = "test_dtw"
-    ml_algorithm1 = MLAlgorithmType.KNN
-    params1 = [5] # Number of neighbors
-    # params1 = [0.5, "rbf"] # Regularization parameter and kernel type (apply default settings for each kernel)
-    # params1 = [100, "gini"] # Number of tress and impurity measure
-    # params1 = [100]  # Number of estimators
-    # params1 = [(64,), 0.01] # Hidden layer sizes and initial learning rate
+    folder_name1 = "patientVSrandom_division_knn_dtw/sit_patient_division"
+    model_name1 = "test_refac"
+    model_name1 = "trial_0"
+    ml_algorithm1 = MLAlgorithmType.KNN_DTW
+
+    # Define the data for DTW KNN
+    if ml_algorithm1 == MLAlgorithmType.KNN_DTW:
+        train_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+                                      group_dict={"C": 2, "R": 2}, data_perc=train_perc)
+        test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+                                     data_names=train_data1.remaining_instances)
 
     trainer1 = SimpleClassifierTrainer(ml_algorithm=ml_algorithm1, working_dir=working_dir1, folder_name=folder_name1,
-                                       train_data=train_data1, test_data=test_data1, params=params1)
+                                       train_data=train_data1, test_data=test_data1)
 
     # Train the model
     trainer1.train(model_name1)
     trainer1.summarize_performance()
 
     # Load trained model
-    # trainer1 = NetworkTrainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1)
-    # trainer1.summarize_performance(show_process=True)
+    # trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1)
+    # trainer1.summarize_performance()

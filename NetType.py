@@ -13,3 +13,4 @@ class NetType(Enum):
     CONV1D_NO_HYBRID = "Convolutional 1D without RNN layers"
     CONV2D_NO_HYBRID = "Convolutional 2D without RNN layers"
     TCN = "Temporal Convolutional Network"
+    TRANS = "Transformer"

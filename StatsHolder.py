@@ -44,7 +44,6 @@ class StatsHolder:
 
             ci = StatsHolder.compute_ci(phat=attribute_value, n_vals=self.n_vals, ci_alpha=ci_alpha)
             temp_dict[attribute_name + "_ci"] = ci
-            print(attribute_name, ci)
             print(" > " + attribute_name + ": [" + str(ci[0]) + "; " + str(ci[1]) + "]")
         self.__dict__.update(temp_dict)
 
@@ -144,8 +143,8 @@ if __name__ == '__main__':
     fn2 = 30
     stats2 = StatsHolder(loss2, acc2, tp2, tn2, fp2, fn2)
 
-    stats3 = StatsHolder.average_stats([stats1, stats2])
+    mean_stats1, dev_stats1 = StatsHolder.average_stats([stats1, stats2])
 
     # Print 95% CIs
     alpha = 0.05
-    stats3.print_ci(ci_alpha=alpha)
+    mean_stats1.print_ci(ci_alpha=alpha)

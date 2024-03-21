@@ -14,6 +14,7 @@ from Conv2dNetwork import Conv2dNetwork
 from Conv1dNoHybridNetwork import Conv1dNoHybridNetwork
 from Conv2dNoHybridNetwork import Conv2dNoHybridNetwork
 from TCNNetwork import TCNNetwork
+from TransformerNetwork import TransformerNetwork
 from SetType import SetType
 from NetType import NetType
 from SkeletonDataset import SkeletonDataset
@@ -45,6 +46,8 @@ class NetworkTrainer(Trainer):
             self.net = Conv2dNetwork()
         elif net_type == NetType.RNN:
             self.net = RNNetwork()
+        elif net_type == NetType.TRANS:
+            self.net = TransformerNetwork()
         else:
             # Keras-based networks
             if net_type == NetType.CONV1D_NO_HYBRID:
@@ -197,8 +200,7 @@ if __name__ == "__main__":
     silence_tensorflow()
 
     # Define variables
-    working_dir1 = "C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/read_ntu_rgbd/"
-    # working_dir1 = "./../"
+    working_dir1 = "./../"
     desired_classes1 = [8, 9]
 
     # Define the data
@@ -210,10 +212,10 @@ if __name__ == "__main__":
 
     # Define the model
     folder_name1 = "tests"
-    model_name1 = "test2tcn"
+    model_name1 = "test_refactor"
     net_type1 = NetType.TCN
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=10, lr=0.01)
+                              train_data=train_data1, test_data=test_data1, epochs=2, lr=0.1)
 
     # Train the model
     trainer1.summarize_performance()
@@ -221,7 +223,7 @@ if __name__ == "__main__":
     trainer1.summarize_performance(show_process=True)
 
     # Load trained model
-    use_keras1 = True
-    trainer1 = NetworkTrainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
-                                         use_keras=use_keras1)
-    trainer1.summarize_performance(show_process=True)
+    # use_keras1 = True
+    # trainer1 = NetworkTrainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
+    #                                      use_keras=use_keras1)
+    # trainer1.summarize_performance(show_process=True)
