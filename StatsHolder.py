@@ -29,6 +29,14 @@ class StatsHolder:
             self.f1 = 2 * self.sens * self.precis / (self.sens + self.precis + self.eps)
             self.mcc = (tp * tn - fp * fn) / np.sqrt((tp + fp) * (fn + tn) * (tp + fn) * (fp + tn) + self.eps)
 
+        # Compute the Macro-Averaged statistics for the multiclass scenario
+        if len(self.f1) > 1:
+            self.sens = np.mean(self.f1)
+            self.spec = np.mean(self.f1)
+            self.precis = np.mean(self.f1)
+            self.f1 = np.mean(self.f1)
+            self.mcc = np.mean(self.f1)
+
     def print_ci(self, ci_alpha=0.05):
         print(" Number of samples = " + str(self.n_vals))
 

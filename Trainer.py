@@ -51,18 +51,32 @@ class Trainer:
             plt.show()
 
     @staticmethod
-    def compute_confusion_matrix(y_true, y_predicted):
-        tp = (y_predicted == 1) & (y_true == 1)
-        tn = (y_predicted == 0) & (y_true == 0)
-        fp = (y_predicted == 1) & (y_true == 0)
-        fn = (y_predicted == 0) & (y_true == 1)
+    def compute_confusion_matrix(y_true, y_predicted, classes=None):
+        if classes is None:
+            # Classical binary computation (class 0 as negative and class 1 as positive)
+            tp = (y_predicted == 1) & (y_true == 1)
+            tn = (y_predicted == 0) & (y_true == 0)
+            fp = (y_predicted == 1) & (y_true == 0)
+            fn = (y_predicted == 0) & (y_true == 1)
 
-        try:
-            out = [np.sum(tp), np.sum(tn), np.sum(fp), np.sum(fn)]
-        except:
-            out = [torch.sum(tp).item(), torch.sum(tn).item(), torch.sum(fp).item(), torch.sum(fn).item()]
+            try:
+                out = [np.sum(tp), np.sum(tn), np.sum(fp), np.sum(fn)]
+            except:
+                out = [torch.sum(tp).item(), torch.sum(tn).item(), torch.sum(fp).item(), torch.sum(fn).item()]
 
-        return out
+            return out
+        else:
+            # One VS Rest computation for Macro-Averaged F1-score and other metrics
+            out = []
+            for c in classes:
+                y_true_i = (y_true == c).astype(int)
+                y_predicted_i = (y_predicted == c).astype(int)
+                out_i = Trainer.compute_confusion_matrix(y_true_i, y_predicted_i, classes=None)
+                out.append(out_i)
+
+            out = np.asarray(out)
+            out = [out[:, i] for i in range(out.shape[1])]
+            return out
 
     @staticmethod
     def save_model(trainer, model_name, use_keras):

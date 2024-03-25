@@ -48,6 +48,7 @@ class SkeletonDataset(Dataset):
                "carry something with other person", "take a photo of other person", "follow other person",
                "whisper in other person's ear", "exchange things with other person", "support somebody with hand",
                "finger-guessing game (playing rock-paper-scissors)"]
+    actions = [a.replace("/", " or ") for a in actions]
 
     n_patients = 40
     list_pat = list(range(1, n_patients + 1))
@@ -164,8 +165,8 @@ class SkeletonDataset(Dataset):
             class_elements = SkeletonDataset.find_elements(elements=self.data_files, group_dict={"A": c})
             n_elements = len(class_elements)
             class_counts.append(n_elements)
-            print("Items of class '" + action + "': " + str(n_elements))
 
+            print("Items of class '" + action + "': " + str(n_elements))
             # Number of elements per class per patient
             pat_counts = []
             non_zero_pat = 0
@@ -231,7 +232,11 @@ class SkeletonDataset(Dataset):
 
         # Draw class pie plot
         action_list = [self.actions[x - 1] for x in self.classes]
-        self.create_pie_plot(counts=class_counts, action=None, label=action_list)
+        if len(self.classes) <= 2:
+            expand_dim = False
+        else:
+            expand_dim = True
+        self.create_pie_plot(counts=class_counts, action=None, label=action_list, expand_dim=expand_dim)
 
     def find_exclusive_patients(self, ref_class):
         ref_elements = SkeletonDataset.find_elements(elements=self.data_files, group_dict={"A": ref_class})
@@ -276,16 +281,26 @@ class SkeletonDataset(Dataset):
         # Save the image
         img_path = self.results_dir + action + "/" + xlab + self.dataset_name + "_barplot.jpg"
         plt.savefig(img_path, dpi=300)
+        plt.close()
 
-    def create_pie_plot(self, counts, action, label):
-        plt.figure(figsize=(4, 4))
+    def create_pie_plot(self, counts, action, label, expand_dim=False):
+        if not expand_dim:
+            plt.figure(figsize=(4, 4))
+        else:
+            plt.figure(figsize=(10, 10))
         img_fold = self.results_dir
         if action is not None:
             img_fold += action + "/"
 
         if isinstance(label, list):
-            labels = [x[:12] for x in label]
-            action = labels[0] + " VS " + labels[1]
+            if not expand_dim:
+                labels = [x[:12] for x in label]
+            else:
+                labels = label
+            if not expand_dim:
+                action = labels[0] + " VS " + labels[1]
+            else:
+                action = "All Actions"
             label = action.replace(" ", "")
         else:
             labels = [label + " " + str(i + 1) for i in range(len(counts))]
@@ -299,6 +314,7 @@ class SkeletonDataset(Dataset):
         # Save the image
         img_path = img_fold + label + self.dataset_name + "_pieplot.jpg"
         plt.savefig(img_path, dpi=400)
+        plt.close()
 
     def change_setting(self, group_dict_element, num_variable, list_variable):
         self.__dict__[num_variable] = np.array(group_dict_element).size
@@ -397,16 +413,16 @@ class SkeletonDataset(Dataset):
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
-    desired_classes1 = [8, 9]
-    # desired_classes1 = [69, 70]
-
-    # Analyse data of the selected class
-    dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1)
-    dataset1.show_statistics()
-    dataset1.show_lengths()
+    # desired_classes1 = [8, 9]
+    desired_classes1 = list(range(1, 11))
 
     # Analyse data of the selected class
     dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, group_dict={"C": 2, "R": 2},
                                dataset_name="C2R2")
+    dataset1.show_statistics()
+    dataset1.show_lengths()
+
+    # Analyse data of the selected class
+    dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1)
     dataset1.show_statistics()
     dataset1.show_lengths()

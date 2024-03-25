@@ -175,28 +175,12 @@ class FeatureExtractor:
         descr = [self.descr[i] for i in ind]
         print("After removing rows with NaN elements:", data.shape)
 
-        # Feature normalization
-        if normalize:
-            self.normalize_data()
-
-        # Feature selection
-        if select_features:
-            self.select_features()
-
         # Store results
         self.preprocessed_data = data
         self.preprocessed_descr = descr
         filename = self.feature_file[:-4] + "_preprocessed.csv"
         self.store_dataset(data, descr, filename)
         print("Preprocessed dataset stored!")
-
-    def normalize_data(self):
-        # Implement Z-score normalization of each feature
-        pass
-
-    def select_features(self):
-        # Try RelieF or PCA to select much fewer features
-        pass
 
     def store_dataset(self, data, descr, filename):
         # Store data
@@ -259,16 +243,34 @@ class FeatureExtractor:
 
         return ind
 
+    @staticmethod
+    def normalize_data(x, mean=None, std=None):
+        flag = False
+        if mean is None or std is None:
+            mean = np.mean(x, 0)
+            std = np.std(x, 0)
+            flag = True
+
+        x = (x - mean) / std
+
+        if not flag:
+            return x
+        else:
+            return x, mean, std
+
 
 # Main
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
-    desired_classes1 = [8, 9]
-    feature_file1 = "hand_crafted_features_global.csv"
+    # desired_classes1 = [8, 9]
+    desired_classes1 = list(range(1, 11))
+    # feature_file1 = "hand_crafted_features_global.csv"
+    feature_file1 = "hand_crafted_features_global_10classes.csv"
     n_windows1 = 1
     include_l21 = False
-    selected_features1 = ["mean", "std", "mean_velocity"]
+    # selected_features1 = ["mean", "std", "mean_velocity"]
+    selected_features1 = None
     group_dict1 = {"C": 2, "R": 2}
 
     # Define dataset instance
@@ -278,11 +280,11 @@ if __name__ == "__main__":
     feature_extractor1 = FeatureExtractor(working_dir=working_dir1, feature_file=feature_file1, dataset=dataset1,
                                           n_windows=n_windows1, include_l2=include_l21,
                                           selected_features=selected_features1)
-    # feature_extractor1.build_feature_dataset()
+    feature_extractor1.build_feature_dataset()
 
     # Preprocess dataset
-    # feature_extractor1.preprocess_feature_dataset()
+    feature_extractor1.preprocess_feature_dataset()
 
     # Load data
-    data1, dim1 = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=feature_file1,
-                                                     group_dict=group_dict1)
+    # data1, dim1 = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=feature_file1,
+    #                                                  group_dict=group_dict1)
