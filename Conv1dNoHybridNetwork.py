@@ -10,7 +10,7 @@ class Conv1dNoHybridNetwork:
     # Define class attributes
     mask_value = 0.0
 
-    def __init__(self, output_neurons=1):
+    def __init__(self, output_neurons=1, conv2_flag=False):
 
         # Define attributes
         self.output_neurons = output_neurons
@@ -21,7 +21,7 @@ class Conv1dNoHybridNetwork:
             print("TODO")
 
         # Layers
-        self.conv2_flag = False
+        self.conv2_flag = conv2_flag
         self.mask = Masking(mask_value=self.mask_value)
         self.flat = Flatten()
         if self.output_neurons == 1:

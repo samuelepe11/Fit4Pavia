@@ -99,14 +99,17 @@ class Simulator:
             self.store_model_results(trainer)
             print("Information associated to " + file + " updated!")
 
-    def log_simulation_results(self):
+    def log_simulation_results(self, model_type=None):
         # Handle some test versions
         if self.results_dir[-2] == "1":
             self.results_dir = self.results_dir[:-2] + "/"
             self.folder_name = self.folder_name[:-1]
-        if self.results_dir.startswith("./../"):
-            self.working_dir = "C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/read_ntu_rgbd/"
-            self.results_dir = self.working_dir + self.results_dir.removeprefix("./../")
+        prev_working_dir = "C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/read_ntu_rgbd/"
+        if self.results_dir.startswith(prev_working_dir):
+            self.working_dir = "./../"
+            self.results_dir = self.working_dir + self.results_dir.removeprefix(prev_working_dir)
+        if model_type is not None:
+            self.model_type = model_type
 
         n_trials = len(os.listdir(self.results_dir + self.simulator_name))
         if self.model_type == NetType.TCN:
@@ -249,31 +252,31 @@ if __name__ == "__main__":
     # Define variables
     seed1 = 111099
     working_dir1 = "./../"
-    # desired_classes1 = [8, 9]
-    desired_classes1 = list(range(1, 11))
+    desired_classes1 = [8, 9]
+    # desired_classes1 = list(range(1, 11))
 
     data_group_dict1 = {"C": 2, "R": 2}
-    # model_type1 = NetType.TCN
-    model_type1 = MLAlgorithmType.AB
+    model_type1 = NetType.CONV2D_NO_HYBRID
+    # model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
     n_rep1 = 100
     train_epochs1 = 300
     train_lr1 = 0.01
-    folder_name1 = "patientVSrandom_division_10classes_ada"
+    folder_name1 = "patientVSrandom_division_conv2d"
     simulator_name1 = "sit_random_division"
 
     feature_file1 = "hand_crafted_features_global_10classes.csv"
-    normalize_data1 = True
+    normalize_data1 = False
 
     # Initialize the simulator
-    # simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
-    #                        working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
-    #                        model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
-    #                        train_lr=train_lr1)
     simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
                            working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
-                           model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1,
-                           normalize_data=normalize_data1)
+                           model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
+                           train_lr=train_lr1)
+    # simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
+    #                        working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
+    #                        model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1,
+    #                        normalize_data=normalize_data1)
 
     # Load simulator
     # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)

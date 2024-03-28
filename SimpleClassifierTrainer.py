@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
 from tslearn.neighbors import KNeighborsTimeSeriesClassifier
 from tslearn.utils import to_time_series_dataset
@@ -34,7 +35,6 @@ class SimpleClassifierTrainer(Trainer):
             self.model = RandomForestClassifier(n_estimators=params[0], criterion=params[1])
         elif ml_algorithm == MLAlgorithmType.AB:
             # params = [DecisionTreeClassifier(max_depth=1), 100, 1]  # Number of estimators
-            from sklearn.tree import DecisionTreeClassifier
             params = [DecisionTreeClassifier(max_depth=3), 300, 1]
             self.model = AdaBoostClassifier(estimator=params[0], n_estimators=params[1], learning_rate=params[2],
                                             algorithm="SAMME")

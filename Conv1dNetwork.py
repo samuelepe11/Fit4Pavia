@@ -1,12 +1,14 @@
 # Import packages
+import torch
 import torch.nn as nn
 
 
 # Class
 class Conv1dNetwork(nn.Module):
 
-    def __init__(self, output_neurons=1):
+    def __init__(self, output_neurons=1, is_2d=False):
         super(Conv1dNetwork, self).__init__()
+        self.is_2d = is_2d
 
         # Define attributes
         self.output_neurons = output_neurons
@@ -47,6 +49,9 @@ class Conv1dNetwork(nn.Module):
             out = self.__dict__["batch_norm" + str(i)](out)
 
         out = out.permute(0, 2, 1)
+        if self.is_2d:
+            out = torch.mean(out, 0, keepdim=True)
+
         out, _ = self.rnn(out)
         out = self.fc(out[:, -1, :])
         out = self.sigmoid(out)

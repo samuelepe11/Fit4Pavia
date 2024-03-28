@@ -8,19 +8,21 @@ from Conv1dNetwork import Conv1dNetwork
 class Conv2dNetwork(Conv1dNetwork):
 
     def __init__(self, output_neurons=1):
-        super(Conv2dNetwork, self).__init__(output_neurons)
+        super(Conv2dNetwork, self).__init__(output_neurons, True)
 
         # Define attributes
         if self.output_neurons == 1:
-            self.num_conv_layers = 2
+            self.layer_dims = [1, 16, 32]
             self.hidden_dim = 64
         else:
             print("TODO")
+        self.num_conv_layers = len(self.layer_dims) - 1
 
         # Layers
         new_channels = self.in_channels
         for i in range(self.num_conv_layers):
-            self.__dict__["conv" + str(i)] = nn.Conv2d(1, 1, kernel_size=3, stride=1)
+            self.__dict__["conv" + str(i)] = nn.Conv2d(self.layer_dims[i], self.layer_dims[i + 1], kernel_size=3,
+                                                       stride=1)
             new_channels -= 2
             self.__dict__["batch_norm" + str(i)] = nn.BatchNorm1d(new_channels)
 

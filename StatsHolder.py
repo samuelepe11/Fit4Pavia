@@ -30,7 +30,7 @@ class StatsHolder:
             self.mcc = (tp * tn - fp * fn) / np.sqrt((tp + fp) * (fn + tn) * (tp + fn) * (fp + tn) + self.eps)
 
         # Compute the Macro-Averaged statistics for the multiclass scenario
-        if len(self.f1) > 1:
+        if isinstance(self.f1, np.ndarray):
             self.sens = np.mean(self.f1)
             self.spec = np.mean(self.f1)
             self.precis = np.mean(self.f1)

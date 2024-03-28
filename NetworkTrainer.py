@@ -212,13 +212,13 @@ if __name__ == "__main__":
 
     # Define the model
     folder_name1 = "tests"
-    model_name1 = "test_refactor"
-    net_type1 = NetType.TCN
+    model_name1 = "test_refactor_conv2"
+    net_type1 = NetType.CONV2D_NO_HYBRID
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=2, lr=0.1)
+                              train_data=train_data1, test_data=test_data1, epochs=300, lr=0.01)
 
     # Train the model
-    trainer1.summarize_performance()
+    #trainer1.summarize_performance()
     trainer1.train(model_name1)
     trainer1.summarize_performance(show_process=True)
 
