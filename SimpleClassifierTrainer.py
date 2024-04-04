@@ -118,6 +118,10 @@ class SimpleClassifierTrainer(Trainer):
         stats_holder = StatsHolder(loss, acc, tp, tn, fp, fn)
         return stats_holder
 
+    def show_model(self):
+        print("ML MODEL:")
+        print(self.model)
+
 
 # Main
 if __name__ == "__main__":

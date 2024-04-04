@@ -61,6 +61,9 @@ class SkeletonDataset(Dataset):
 
     fc = 30
     dt = 1 / fc
+    connections = [(0, 1), (1, 20), (20, 2), (2, 3), (20, 4), (4, 5), (5, 6), (20, 8), (6, 7), (8, 9), (9, 10),
+                   (10, 11), (11, 23), (11, 24), (7, 22), (0, 12), (12, 13), (13, 14), (14, 15), (16, 17),
+                   (17, 18), (18, 19), (7, 21), (0, 16)]
 
     def __init__(self, working_dir, desired_classes, group_dict=None, data_perc=None, divide_pt=False, data_names=None,
                  dataset_name=None):
@@ -367,6 +370,16 @@ class SkeletonDataset(Dataset):
         data_list = [TimeSeriesScalerMinMax().fit_transform([seq])[0] for seq in data_list]
 
         return data_list, label_list
+
+    def get_item_from_name(self, item_name):
+        output = None
+        filename = item_name + self.extension
+
+        for i in range(self.len):
+            if self.data_files[i] == filename:
+                output = self.__getitem__(i)
+
+        return output
 
     @staticmethod
     def count_elements(elements, group_dict):

@@ -6,15 +6,15 @@ from RNNetwork import RNNetwork
 # Class
 class GRUNetwork(RNNetwork):
 
-    def __init__(self, output_neurons=1):
-        super(GRUNetwork, self).__init__(output_neurons)
+    def __init__(self, num_classes=2):
+        super(GRUNetwork, self).__init__(num_classes)
 
         # Define attributes
-        self.output_neurons = output_neurons
-        if output_neurons == 1:
+        if num_classes == 2:
             self.hidden_dim = 64
         else:
-            print("TODO")
+            # TODO
+            self.hidden_dim = 64
 
         # Adjust layers
         self.rnn = nn.GRU(input_size=self.in_channels, hidden_size=self.hidden_dim, batch_first=True)

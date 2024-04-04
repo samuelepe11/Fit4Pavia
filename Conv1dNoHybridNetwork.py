@@ -2,6 +2,7 @@
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Masking, Conv1D, MaxPooling1D, Flatten, Dense
+from keras.utils import to_categorical
 
 
 # Class
@@ -10,15 +11,22 @@ class Conv1dNoHybridNetwork:
     # Define class attributes
     mask_value = 0.0
 
-    def __init__(self, output_neurons=1, conv2_flag=False):
+    def __init__(self, num_classes=2, conv2_flag=False, binary_output=False):
 
         # Define attributes
-        self.output_neurons = output_neurons
-        if output_neurons == 1:
+        self.num_classes = num_classes
+        if num_classes == 2:
             self.layer_dims = [16, 32]
             self.hidden_dim = 32
+            if not binary_output:
+                self.output_neurons = 1
+            else:
+                self.output_neurons = 2
         else:
-            print("TODO")
+            # TODO
+            self.layer_dims = [16, 32]
+            self.hidden_dim = 32
+            self.output_neurons = num_classes
 
         # Layers
         self.conv2_flag = conv2_flag
@@ -45,6 +53,9 @@ class Conv1dNoHybridNetwork:
         if self.conv2_flag:
             x = np.expand_dims(x, 3)
 
+        if self.output_neurons > 1:
+            y = to_categorical(y, self.output_neurons)
+
         history = self.model.fit(x, y, epochs=epochs, batch_size=batch_size, verbose=0)
         return history
 
@@ -61,5 +72,8 @@ class Conv1dNoHybridNetwork:
     def evaluate(self, x, y):
         if self.conv2_flag:
             x = np.expand_dims(x, 3)
+
+        if self.output_neurons > 1:
+            y = to_categorical(y, self.output_neurons)
 
         return self.model.evaluate(x, y, verbose=0)

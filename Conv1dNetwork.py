@@ -6,19 +6,28 @@ import torch.nn as nn
 # Class
 class Conv1dNetwork(nn.Module):
 
-    def __init__(self, output_neurons=1, is_2d=False):
+    def __init__(self, num_classes=2, is_2d=False, binary_output=False):
         super(Conv1dNetwork, self).__init__()
         self.is_2d = is_2d
 
         # Define attributes
-        self.output_neurons = output_neurons
-        if self.output_neurons == 1:
+        self.num_classes = num_classes
+        if self.num_classes == 2:
             self.in_channels = 75
             self.layer_dims = [self.in_channels, 16, 32, 64]
             self.hidden_dim = 128
             self.num_rnn_layers = 1
+            if not binary_output:
+                self.output_neurons = 1
+            else:
+                self.output_neurons = 2
         else:
-            print("TODO")
+            # TODO
+            self.in_channels = 75
+            self.layer_dims = [self.in_channels, 16, 32, 64]
+            self.hidden_dim = 128
+            self.num_rnn_layers = 1
+            self.output_neurons = num_classes
         self.num_conv_layers = len(self.layer_dims) - 1
 
         # Layers
@@ -29,31 +38,51 @@ class Conv1dNetwork(nn.Module):
             self.__dict__["relu" + str(i)] = nn.ReLU()
             self.__dict__["batch_norm" + str(i)] = nn.BatchNorm1d(self.layer_dims[i + 1])
 
-        self.rnn = nn.RNN(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim, num_layers=self.num_rnn_layers,
-                          batch_first=True)
-        self.fc = nn.Linear(self.hidden_dim, out_features=self.output_neurons)
-        self.sigmoid = nn.Sigmoid()
+        self.__dict__["rnn"] = nn.RNN(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim,
+                                      num_layers=self.num_rnn_layers, batch_first=True)
+        self.__dict__["fc"] = nn.Linear(self.hidden_dim, out_features=self.output_neurons)
+        if self.output_neurons == 1:
+            sigmoid = nn.Sigmoid()
+        else:
+            sigmoid = nn.Softmax(dim=1)
+        self.__dict__["sigmoid"] = sigmoid
 
-    def forward(self, x):
+        # CAM attributes
+        self.gradients = None
+
+    def activations_hook(self, grad):
+        self.gradients = grad
+
+    def forward(self, x, layer_interrupt=None):
         # Apply network
         out = x.permute(0, 2, 1)
+
+        if self.is_2d:
+            out = out.unsqueeze(0)
 
         # Handle previous versions of the Conv1dNetwork class (no num_conv_layers attribute)
         if "num_conv_layers" not in self.__dict__.keys():
             self.num_conv_layers = len([x for x in self.__dict__.keys() if x.startswith("conv")])
 
+        target_activation = None
         for i in range(self.num_conv_layers):
             out = self.__dict__["conv" + str(i)](out)
+            if layer_interrupt == "conv" + str(i):
+                target_activation = out
+                h = out.register_hook(self.activations_hook)
             out = self.__dict__["pool" + str(i)](out)
             out = self.__dict__["relu" + str(i)](out)
             out = self.__dict__["batch_norm" + str(i)](out)
 
-        out = out.permute(0, 2, 1)
         if self.is_2d:
-            out = torch.mean(out, 0, keepdim=True)
+            out = torch.mean(out, dim=2)
 
+        out = out.permute(0, 2, 1)
         out, _ = self.rnn(out)
         out = self.fc(out[:, -1, :])
-        out = self.sigmoid(out)
 
+        if layer_interrupt is not None:
+            return out, target_activation
+
+        out = self.sigmoid(out)
         return out

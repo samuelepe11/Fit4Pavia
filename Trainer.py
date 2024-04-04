@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import dill
 import keras
+import os
 
 from SetType import SetType
 from StatsHolder import StatsHolder
@@ -23,7 +24,10 @@ class Trainer:
         # Define data parameters
         self.working_dir = working_dir
         self.folder_name = folder_name
-        self.results_dir = working_dir + self.results_fold + folder_name + "/"
+        self.results_dir = working_dir + self.results_fold
+        if folder_name not in os.listdir(self.results_dir):
+            os.mkdir(self.results_dir + folder_name)
+        self.results_dir += folder_name + "/"
         self.train_data = train_data
         self.test_data = test_data
 
@@ -103,8 +107,13 @@ class Trainer:
                   str(np.round(trainer.train_losses[0], 4)) + " -> " + str(np.round(trainer.train_losses[-1], 4)))
 
     @staticmethod
-    def load_model(working_dir, folder_name, model_name, use_keras=False):
-        filepath = working_dir + Trainer.results_fold + folder_name + "/" + model_name + ".pt"
+    def load_model(working_dir, folder_name, model_name, use_keras=False, folder_path=None):
+        if folder_name is not None:
+            filepath = working_dir + Trainer.results_fold + folder_name + "/"
+        else:
+            filepath = folder_path
+        filepath += model_name + ".pt"
+
         with open(filepath, "rb") as file:
             if not use_keras:
                 network_trainer = pickle.load(file)

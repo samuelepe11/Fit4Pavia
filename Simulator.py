@@ -112,8 +112,12 @@ class Simulator:
             self.model_type = model_type
 
         n_trials = len(os.listdir(self.results_dir + self.simulator_name))
-        if self.model_type == NetType.TCN:
-            n_trials = int(n_trials / 2)
+        try:
+            if self.model_type == NetType.TCN:
+                n_trials = int(n_trials / 2)
+        except AttributeError:
+            # Handle previous versions of the Simulator class (no model_type attribute)
+            pass
 
         with open(self.results_dir + self.simulator_name + "_log.csv", "w") as f:
             f.write("run_id; dim_train; dim_test; train_acc; test_acc; train_f1; test_f1\n")
@@ -126,7 +130,7 @@ class Simulator:
                     trainer = Trainer.load_model(self.working_dir, self.folder_name, self.simulator_name + "/" + file,
                                                  self.use_keras)
                 # Handle previous versions of the PatientDivisionSimulator class (no use_keras attribute)
-                except:
+                except AttributeError:
                     trainer = Trainer.load_model(self.working_dir, self.folder_name, self.simulator_name + "/" + file)
 
                 train_data = trainer.train_data
@@ -136,7 +140,7 @@ class Simulator:
                     if self.use_keras:
                         train_data, _ = train_data
                         test_data, _ = test_data
-                except:
+                except AttributeError:
                     # The class has been defined and saved before the introduction of use_keras
                     self.use_keras = False
 
@@ -256,7 +260,7 @@ if __name__ == "__main__":
     # desired_classes1 = list(range(1, 11))
 
     data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.CONV2D_NO_HYBRID
+    model_type1 = NetType.CONV2D
     # model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
     n_rep1 = 100

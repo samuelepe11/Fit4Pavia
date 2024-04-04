@@ -24,9 +24,11 @@ from Trainer import Trainer
 
 # Class
 class NetworkTrainer(Trainer):
+    default_batch_size = 32
     keras_networks = [NetType.CONV1D_NO_HYBRID, NetType.CONV2D_NO_HYBRID, NetType.TCN]
 
-    def __init__(self, net_type, working_dir, folder_name, train_data, test_data, epochs, lr, batch_size=32):
+    def __init__(self, net_type, working_dir, folder_name, train_data, test_data, epochs, lr,
+                 batch_size=default_batch_size, binary_output=False):
         super().__init__(working_dir, folder_name, train_data, test_data)
 
         # Initialize attributes
@@ -34,28 +36,34 @@ class NetworkTrainer(Trainer):
         self.test_dim = len(self.test_data)
         self.net_type = net_type
 
+        self.num_classes = len(self.train_data.classes)
+        if self.num_classes > 2 or binary_output:
+            self.multiclass = True
+        else:
+            self.multiclass = False
+
         if net_type == NetType.LSTM:
-            self.net = LSTMNetwork(bidirectional=False)
+            self.net = LSTMNetwork(bidirectional=False, num_classes=self.num_classes)
         elif net_type == NetType.BLSTM:
-            self.net = LSTMNetwork(bidirectional=True)
+            self.net = LSTMNetwork(bidirectional=True, num_classes=self.num_classes)
         elif net_type == NetType.GRU:
-            self.net = GRUNetwork()
+            self.net = GRUNetwork(num_classes=self.num_classes)
         elif net_type == NetType.CONV1D:
-            self.net = Conv1dNetwork()
+            self.net = Conv1dNetwork(num_classes=self.num_classes, binary_output=binary_output)
         elif net_type == NetType.CONV2D:
-            self.net = Conv2dNetwork()
+            self.net = Conv2dNetwork(num_classes=self.num_classes, binary_output=binary_output)
         elif net_type == NetType.RNN:
-            self.net = RNNetwork()
+            self.net = RNNetwork(num_classes=self.num_classes)
         elif net_type == NetType.TRANS:
-            self.net = TransformerNetwork()
+            self.net = TransformerNetwork(num_classes=self.num_classes)
         else:
             # Keras-based networks
             if net_type == NetType.CONV1D_NO_HYBRID:
-                self.net = Conv1dNoHybridNetwork()
+                self.net = Conv1dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output)
             elif net_type == NetType.TCN:
-                self.net = TCNNetwork()
+                self.net = TCNNetwork(num_classes=self.num_classes)
             else:
-                self.net = Conv2dNoHybridNetwork()
+                self.net = Conv2dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output)
             # Redefine datasets
             self.train_data, self.test_data = SkeletonDataset.get_padded_datasets(self.train_data, self.test_data,
                                                                                   self.train_dim)
@@ -66,10 +74,16 @@ class NetworkTrainer(Trainer):
         self.lr = lr
 
         if self.net_type not in self.keras_networks:
-            self.criterion = nn.BCELoss()
+            if not self.multiclass:
+                self.criterion = nn.BCELoss()
+            else:
+                self.criterion = nn.CrossEntropyLoss()
             self.optimizer = torch.optim.Adam(params=self.net.parameters(), lr=self.lr)
         else:
-            self.criterion = keras.losses.BinaryCrossentropy()
+            if not self.multiclass:
+                self.criterion = keras.losses.BinaryCrossentropy()
+            else:
+                self.criterion = keras.losses.CategoricalCrossentropy()
             self.optimizer = keras.optimizers.Adam(learning_rate=self.lr)
             self.net.compile(optimizer=self.optimizer, loss=self.criterion)
 
@@ -98,6 +112,9 @@ class NetworkTrainer(Trainer):
 
                     y = torch.tensor(y)
                     y = y.to(self.device)
+                    if self.multiclass:
+                        # Solve issues related to the CrossEntropyLoss
+                        y = y.long()
 
                     output = net(x)
                     output = output.squeeze()
@@ -151,6 +168,9 @@ class NetworkTrainer(Trainer):
 
                     y = torch.tensor(y)
                     y = y.to(self.device)
+                    if self.multiclass:
+                        # Solve issues related to the CrossEntropyLoss
+                        y = y.long()
 
                     output = net(x)
                     output = output.squeeze()
@@ -160,7 +180,10 @@ class NetworkTrainer(Trainer):
                     loss += temp_loss.item()
 
                     # Accuracy evaluation
-                    prediction = (output >= 0.5).float()
+                    if not self.multiclass:
+                        prediction = (output >= 0.5).float()
+                    else:
+                        prediction = np.argmax(output)
                     acc += (prediction == y).item()
 
                     # Confusion matrix definition
@@ -175,8 +198,11 @@ class NetworkTrainer(Trainer):
         else:
             x, y = data
             prediction = net.predict(x)
-            prediction = prediction.squeeze(1)
-            prediction = np.round(prediction)
+            if len(prediction.shape) == 1:
+                prediction = prediction.squeeze(1)
+                prediction = np.round(prediction)
+            else:
+                prediction = np.argmax(prediction, axis=1)
 
             loss, acc = net.evaluate(x, y)
             cm = Trainer.compute_confusion_matrix(y, prediction)
@@ -187,6 +213,14 @@ class NetworkTrainer(Trainer):
 
         stats_holder = StatsHolder(loss, acc, tp, tn, fp, fn)
         return stats_holder
+
+    def show_model(self):
+        print("DL MODEL:")
+        attributes = self.net.__dict__
+        for attr in attributes.keys():
+            val = attributes[attr]
+            if issubclass(type(val), nn.Module):
+                print(attr, "-" * (20 - len(attr)), val)
 
 
 # Main
@@ -202,6 +236,7 @@ if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
     desired_classes1 = [8, 9]
+    # desired_classes1 = list(range(1, 11))
 
     # Define the data
     train_perc = 0.7
@@ -211,19 +246,21 @@ if __name__ == "__main__":
                                  data_names=train_data1.remaining_instances)
 
     # Define the model
-    folder_name1 = "tests"
-    model_name1 = "test_refactor_conv2"
-    net_type1 = NetType.CONV2D_NO_HYBRID
-    trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=300, lr=0.01)
+    folder_name1 = "models_for_JAI"
+    model_name1 = "conv2d"
+    net_type1 = NetType.CONV2D
+    binary_output1 = False
+    '''trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
+                              train_data=train_data1, test_data=test_data1, epochs=300, lr=0.01,
+                              binary_output=binary_output1)
 
     # Train the model
-    #trainer1.summarize_performance()
+    trainer1.summarize_performance()
     trainer1.train(model_name1)
-    trainer1.summarize_performance(show_process=True)
+    trainer1.summarize_performance(show_process=True)'''
 
     # Load trained model
-    # use_keras1 = True
-    # trainer1 = NetworkTrainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
-    #                                      use_keras=use_keras1)
-    # trainer1.summarize_performance(show_process=True)
+    use_keras1 = False
+    trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
+                                  use_keras=use_keras1)
+    trainer1.summarize_performance(show_process=True)

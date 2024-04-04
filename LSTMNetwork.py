@@ -6,16 +6,16 @@ from RNNetwork import RNNetwork
 # Class
 class LSTMNetwork(RNNetwork):
 
-    def __init__(self, bidirectional, output_neurons=1):
-        super(LSTMNetwork, self).__init__(output_neurons)
+    def __init__(self, bidirectional, num_classes=2):
+        super(LSTMNetwork, self).__init__(num_classes)
 
         # Define attributes
-        self.output_neurons = output_neurons
         self.bidirectional = bidirectional
-        if output_neurons == 1:
+        if num_classes == 2:
             self.hidden_dim = 32
         else:
-            print("TODO")
+            # TODO
+            self.hidden_dim = 32
 
         self.fc_input = self.hidden_dim
         if self.bidirectional:
