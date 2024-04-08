@@ -50,7 +50,7 @@ if __name__ == "__main__":
     # desired_classes1 = list(range(1, 11))
 
     data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.CONV2D
+    model_type1 = NetType.CONV2D_NO_HYBRID
     # model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
     n_rep1 = 100
@@ -75,15 +75,15 @@ if __name__ == "__main__":
     #                                       normalize_data=normalize_data1)
 
     # Load simulator
-    # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
+    simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
 
     # Run simulation
-    simulator1.run_simulation(seed1)
+    # simulator1.run_simulation(seed1)
     simulator1.log_simulation_results()
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
     # simulator1.reload_simulation_results()
 
     # Assess and store simulator
-    simulator1.assess_simulation(ci_alpha=0.05)
-    Simulator.save_simulator(simulator1, simulator_name1)
+    # simulator1.assess_simulation(ci_alpha=0.05)
+    # Simulator.save_simulator(simulator1, simulator_name1)

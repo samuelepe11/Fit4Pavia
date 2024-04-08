@@ -6,3 +6,4 @@ from enum import Enum
 class ExplainerType(Enum):
     GC = "GradCAM"
     HRC = "HiResCAM"
+    VC = "VanillaCAM"

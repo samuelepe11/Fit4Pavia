@@ -83,7 +83,8 @@ class Trainer:
             return out
 
     @staticmethod
-    def save_model(trainer, model_name, use_keras):
+    def save_model(trainer, model_name, use_keras,
+                   absolute_path="C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/read_ntu_rgbd/"):
         file_path = trainer.results_dir + model_name + ".pt"
         with open(file_path, "wb") as file:
             if not use_keras:
@@ -92,6 +93,7 @@ class Trainer:
                 if trainer.net_type == NetType.TCN:
                     # Store the network separately because dill is unable to store TCN layers
                     file_path_net = file_path.strip(".pt") + "_net.pt"
+                    file_path_net = absolute_path + file_path_net.strip("./../")
                     trainer.net.model.save(file_path_net)
                     trainer.net = "Empty"
 
@@ -99,7 +101,7 @@ class Trainer:
 
                 if trainer.net_type == NetType.TCN:
                     # Restore the network
-                    trainer.net = TCNNetwork()
+                    trainer.net = TCNNetwork(trainer.num_classes, trainer.binary_output)
                     trainer.net.compile(trainer.optimizer, trainer.criterion)
                     trainer.net.model.load_weights(file_path_net)
 
@@ -126,7 +128,7 @@ class Trainer:
                     if filepath.startswith(".") and not file_path_net.startswith("."):
                         # Strip removes the starting "." from the string along with the extension
                         file_path_net = "." + file_path_net
-                    network_trainer.net = TCNNetwork()
+                    network_trainer.net = TCNNetwork(network_trainer.num_classes, network_trainer.binary_output)
                     network_trainer.net.compile(keras.optimizers.Adam(learning_rate=0.01), keras.losses.BinaryCrossentropy())
                     x, y = network_trainer.train_data
                     network_trainer.net.train(x, y, 1, 1)

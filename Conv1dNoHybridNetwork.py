@@ -1,7 +1,8 @@
 # Import packages
+import keras.activations
 import numpy as np
 from keras.models import Sequential
-from keras.layers import Masking, Conv1D, MaxPooling1D, Flatten, Dense
+from keras.layers import Masking, Conv1D, MaxPooling1D, GlobalAveragePooling1D, Dense
 from keras.utils import to_categorical
 
 
@@ -31,7 +32,6 @@ class Conv1dNoHybridNetwork:
         # Layers
         self.conv2_flag = conv2_flag
         self.mask = Masking(mask_value=self.mask_value)
-        self.flat = Flatten()
         if self.output_neurons == 1:
             activation = "sigmoid"
         else:
@@ -43,7 +43,7 @@ class Conv1dNoHybridNetwork:
         for i in range(len(self.layer_dims)):
             self.model.add(Conv1D(filters=self.layer_dims[i], kernel_size=3, activation="relu"))
             self.model.add(MaxPooling1D(pool_size=2))
-        self.model.add(self.flat)
+        self.model.add(GlobalAveragePooling1D(data_format="channels_last", keepdims=False))
         self.model.add(self.dense)
 
     def compile(self, optimizer, loss):

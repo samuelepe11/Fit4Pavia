@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
 import torch.nn.utils.rnn as rnn_utils
+import tensorflow as tf
 from torch.utils.data import Dataset
 from tslearn.preprocessing import TimeSeriesScalerMinMax
 
@@ -407,7 +408,7 @@ class SkeletonDataset(Dataset):
         print("----------------------------------------------------------------------------------")
 
     @staticmethod
-    def get_padded_datasets(train_data, test_data, train_dim):
+    def get_padded_dataset(train_data, test_data, train_dim):
         train_list, train_labels = train_data.get_list()
         test_list, test_labels = test_data.get_list()
         padded_seq = rnn_utils.pad_sequence(train_list + test_list, batch_first=True,
@@ -420,6 +421,22 @@ class SkeletonDataset(Dataset):
         test_labels = np.asarray(test_labels)
 
         return (train_data, train_labels), (test_data, test_labels)
+
+    @staticmethod
+    def remove_padding(x):
+        original_x = []
+        dims_original = []
+        for i in range(x.shape[0]):
+            xi = x[i]
+            mask = xi != Conv1dNoHybridNetwork.mask_value
+            mask = (np.mean(mask, 1)).astype(int)
+            dim_original = np.sum(mask)
+
+            original_x.append(xi[:dim_original])
+            dims_original.append(dim_original)
+
+        original_x = np.array(original_x)
+        return original_x, dims_original
 
 
 # Main

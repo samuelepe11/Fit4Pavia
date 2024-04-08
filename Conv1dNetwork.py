@@ -38,14 +38,14 @@ class Conv1dNetwork(nn.Module):
             self.__dict__["relu" + str(i)] = nn.ReLU()
             self.__dict__["batch_norm" + str(i)] = nn.BatchNorm1d(self.layer_dims[i + 1])
 
-        self.__dict__["rnn"] = nn.RNN(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim,
-                                      num_layers=self.num_rnn_layers, batch_first=True)
-        self.__dict__["fc"] = nn.Linear(self.hidden_dim, out_features=self.output_neurons)
+        self.rnn = nn.RNN(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim, num_layers=self.num_rnn_layers,
+                          batch_first=True)
+        self.fc = nn.Linear(self.hidden_dim, out_features=self.output_neurons)
         if self.output_neurons == 1:
             sigmoid = nn.Sigmoid()
         else:
             sigmoid = nn.Softmax(dim=1)
-        self.__dict__["sigmoid"] = sigmoid
+        self.sigmoid = sigmoid
 
         # CAM attributes
         self.gradients = None

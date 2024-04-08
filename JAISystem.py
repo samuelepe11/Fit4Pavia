@@ -1,16 +1,11 @@
 # Import packages
 import os
-
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-import torch
-import torch.nn as nn
 
 from SkeletonDataset import SkeletonDataset
 from Trainer import Trainer
-from NetworkTrainer import NetworkTrainer
-from ExplainerType import ExplainerType
 
 
 # Class
@@ -32,29 +27,10 @@ class JAISystem:
         self.use_keras = use_keras
 
         self.trainer = Trainer.load_model(working_dir=working_dir, folder_name=None, model_name=model_name,
-                                          use_keras=use_keras, folder_path=self.models_dir)
+                                          use_keras=self.use_keras, folder_path=self.models_dir)
         self.trainer.show_model()
 
-        self.explainer_type = None
-        self.explainer = None
-
-    def get_cam(self, item_name, target_layer, target_class, explainer_type, show=False):
-        x, y = self.get_item_from_name(item_name)
-        cam, output_prob = JAISystem.draw_cam(self.trainer, x, target_layer, target_class, explainer_type)
-
-        title = item_name + " (" + str(int(y)) + ") - CAM " + str(target_class) + "(" + str(np.round(output_prob * 100,
-                                                                                                     2)) + "%)"
-        if not show:
-            plt.figure()
-            plt.imshow(cam, "jet")
-            plt.title(title)
-            plt.savefig(self.results_dir + self.system_name + "/" + item_name + "_" + explainer_type.value + target_layer +
-                        "_" + str(target_class) + ".png", format="png", bbox_inches="tight", pad_inches=0)
-            plt.close()
-        else:
-            self.show_skeleton(item=x, cam=cam, title=title)
-
-    def show_skeleton(self, item, cam=None, title=None, max_color_range=63, slowing_parameter=3):
+    def show_skeleton(self, item, map=None, title=None, switch_map_format=False, slowing_parameter=3):
         # Extract x, y, z coordinates of joints
         if isinstance(item, str):
             positions, _ = self.get_item_from_name(item)
@@ -72,19 +48,27 @@ class JAISystem:
         max_z = np.max(z)
         min_z = np.min(z)
 
-        if cam.shape[1] == 1:
-            is_1d = True
+        is_1d = False
+        to_2d = False
+        if map.shape[1] == 1:
+            if switch_map_format:
+                to_2d = True
+            else:
+                is_1d = True
+                map = map.squeeze(1)
         else:
-            is_1d = False
+            if switch_map_format:
+                is_1d = True
+                map = np.mean(map, axis=1)
+                map = JAISystem.normalize_map(map)
 
-        if cam is not None and not is_1d:
-            # Average CAM values among different axis of the same joint
-            joint_cam = [np.mean(cam[:, (i * 3):(i + 1) * 3], axis=1) for i in range(cam.shape[1] // 3)]
-            cam = np.stack(joint_cam, 1)
+        if map is not None and not is_1d and not to_2d:
+            # Average map values among different axis of the same joint
+            joint_map = [np.mean(map[:, (i * 3):(i + 1) * 3], axis=1) for i in range(map.shape[1] // 3)]
+            map = np.stack(joint_map, 1)
 
             # Adjust color range
-            cam = JAISystem.normalize_cam(cam)
-            cam = (max_color_range * cam).astype(int)
+            map = JAISystem.normalize_map(map)
 
         # Plot each frame
         plt.ion()
@@ -96,7 +80,6 @@ class JAISystem:
         for frame in range(positions.shape[0]):
             # Initialize axis
             plt.cla()
-
             ax.axis("off")
             ax.set_xlim(min_x, max_x)
             ax.set_ylim(min_y, max_y)
@@ -108,17 +91,20 @@ class JAISystem:
             frame_z = z[frame]
 
             # Plot joints
-            if cam is None or is_1d:
-                color = "b"
+            if map is None or is_1d:
+                color = "g"
                 cmap = None
             else:
-                color = cam[frame, :]
+                color = map[frame]
                 cmap = "jet"
-            ax.scatter(frame_x, frame_y, frame_z, c=color, cmap=cmap, marker="o", s=30, alpha=1)
 
-            if cam is not None and is_1d:
-                color = cam[frame]
-                ax.scatter(max_x, max_y, max_z, c=color, cmap="jet", marker="o", s=500, alpha=1)
+            if not to_2d:
+                # Draw joints with different colors
+                ax.scatter(frame_x, frame_y, frame_z, c=color, cmap=cmap, marker="o", s=30, alpha=1)
+
+            if map is not None and is_1d:
+                color = plt.cm.jet(map[frame])
+                ax.plot(max_x, max_y, max_z, color=color, marker="o", markersize=30)
 
             # Plot connections
             for connection in SkeletonDataset.connections:
@@ -126,6 +112,11 @@ class JAISystem:
                 joint2_pos = (frame_x[connection[1]], frame_y[connection[1]], frame_z[connection[1]])
                 ax.plot([joint1_pos[0], joint2_pos[0]], [joint1_pos[1], joint2_pos[1]], [joint1_pos[2], joint2_pos[2]],
                         c="r")
+
+            if to_2d:
+                # Draw joints of the same color
+                color = plt.cm.jet(color)
+                ax.plot(frame_x, frame_y, frame_z, color=color, marker="o", markersize=6, linewidth=0, alpha=1)
 
             plt.draw()
             plt.pause(SkeletonDataset.dt * slowing_parameter)
@@ -141,92 +132,34 @@ class JAISystem:
         x, y = dataset.get_item_from_name(item_name)
         return x, y
 
-    @staticmethod
-    def draw_cam(trainer, x, target_layer, target_class, explainer_type):
-        # Adjust data
-        net = trainer.net
-        if isinstance(net.__dict__[target_layer], nn.Conv2d):
-            is_2d = True
-        elif isinstance(net.__dict__[target_layer], nn.Conv1d):
-            is_2d = False
+    def display_output(self, item_name, target_layer, target_class, x, y, explainer_type, map, output_prob,
+                       switch_map_format=False, show=False):
+        title = item_name + " (" + str(int(y)) + ") - CAM " + str(target_class) + "(" + str(np.round(output_prob * 100,
+                                                                                                     2)) + "%)"
+        if not show:
+            plt.figure()
+            plt.imshow(map, "jet")
+            plt.title(title)
+            plt.savefig(
+                self.results_dir + self.system_name + "/" + item_name + "_" + explainer_type.value + target_layer +
+                "_" + str(target_class) + ".png", format="png", bbox_inches="tight", pad_inches=0)
+            plt.close()
         else:
-            is_2d = None
-            print("The CAM method cannot be applied for the selected layer!")
-
-        x = torch.from_numpy(x)
-        x = x.unsqueeze(0)
-
-        # Update activations and gradients
-        net.eval()
-        net.zero_grad()
-        output, target_activation = net(x, layer_interrupt=target_layer)
-
-        loss = output[:, target_class]
-        loss.backward()
-        target_grad = net.gradients
-
-        # Compute CAM
-        if explainer_type == ExplainerType.GC:
-            cam = JAISystem.gc_map(target_activation, target_grad, is_2d)
-        elif explainer_type == ExplainerType.HRC:
-            cam = JAISystem.hrc_map(target_activation, target_grad)
-        else:
-            print("CAM generation method not implemented!")
-            cam = None
-
-        cam = cam.cpu().detach().numpy()
-        cam = JAISystem.adjust_cam(cam, x, is_2d)
-
-        output_prob = torch.softmax(output, dim=1)
-        output_prob = output_prob[:, target_class]
-        output_prob = output_prob.detach().numpy()[0]
-        return cam, output_prob
+            self.show_skeleton(item=x, map=map, title=title, switch_map_format=switch_map_format)
 
     @staticmethod
-    def gc_map(target_activation, target_grad, is_2d=True):
-        target_activation = target_activation.squeeze(0)
-        target_grad = target_grad.squeeze(0)
-
-        if is_2d:
-            dim_mean = (1, 2)
-        else:
-            dim_mean = 1
-        weights = torch.mean(target_grad, dim=dim_mean)
-
-        for i in range(target_activation.shape[0]):
-            target_activation[i] *= weights[i]
-        cam = torch.sum(target_activation, dim=0)
-        cam = torch.relu(cam)
-
-        return cam
-
-    @staticmethod
-    def hrc_map(target_activation, target_grad):
-        target_activation = target_activation.squeeze(0)
-        target_grad = target_grad.squeeze(0)
-
-        for i in range(target_activation.shape[0]):
-            target_activation[i] *= target_grad[i]
-        cam = torch.sum(target_activation, dim=0)
-
-        return cam
-
-    @staticmethod
-    def adjust_cam(map, x, is_2d=True):
-        map = map.squeeze()
-        map = JAISystem.normalize_cam(map)
-        map = map.transpose()
+    def adjust_map(map, x, is_2d=True):
+        map = JAISystem.normalize_map(map)
 
         if is_2d:
             dim_reshape = (x.shape[2], x.shape[1])
         else:
             dim_reshape = (1, x.shape[1])
         map = cv2.resize(map, dim_reshape)
-        map = np.uint8(255 * map)
         return map
 
     @staticmethod
-    def normalize_cam(map):
+    def normalize_map(map):
         maximum = np.max(map)
         minimum = np.min(map)
         if maximum == minimum:
@@ -237,26 +170,5 @@ class JAISystem:
         else:
             map = (map - minimum) / (maximum + minimum)
 
+        map = np.uint8(255 * map)
         return map
-
-
-# Main
-if __name__ == "__main__":
-    # Define variables
-    working_dir1 = "./../"
-
-    # Define the system
-    model_name1 = "conv2d"
-    system_name1 = "DD_" + model_name1
-    use_keras1 = False
-    system1 = JAISystem(working_dir=working_dir1, model_name=model_name1, system_name=system_name1,
-                        use_keras=use_keras1)
-
-    # Explain one item
-    item_name1 = "S001C002P001R002A009"
-    target_layer1 = "conv2"
-    target_class1 = 0
-    explainer_type1 = ExplainerType.GC
-    show1 = True
-    system1.get_cam(item_name=item_name1, target_layer=target_layer1, target_class=target_class1,
-                    explainer_type=explainer_type1, show=show1)

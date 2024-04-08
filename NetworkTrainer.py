@@ -5,6 +5,7 @@ import random
 import numpy as np
 import keras
 from silence_tensorflow import silence_tensorflow
+from tcn import TCN
 
 from LSTMNetwork import LSTMNetwork
 from GRUNetwork import GRUNetwork
@@ -37,11 +38,14 @@ class NetworkTrainer(Trainer):
         self.net_type = net_type
 
         self.num_classes = len(self.train_data.classes)
+        self.binary_output = binary_output
         if self.num_classes > 2 or binary_output:
             self.multiclass = True
         else:
             self.multiclass = False
 
+        self.descr_train = None
+        self.descr_test = None
         if net_type == NetType.LSTM:
             self.net = LSTMNetwork(bidirectional=False, num_classes=self.num_classes)
         elif net_type == NetType.BLSTM:
@@ -61,12 +65,14 @@ class NetworkTrainer(Trainer):
             if net_type == NetType.CONV1D_NO_HYBRID:
                 self.net = Conv1dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output)
             elif net_type == NetType.TCN:
-                self.net = TCNNetwork(num_classes=self.num_classes)
+                self.net = TCNNetwork(num_classes=self.num_classes, binary_output=binary_output)
             else:
                 self.net = Conv2dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output)
             # Redefine datasets
-            self.train_data, self.test_data = SkeletonDataset.get_padded_datasets(self.train_data, self.test_data,
-                                                                                  self.train_dim)
+            self.descr_train = self.train_data.data_files
+            self.descr_test = self.test_data.data_files
+            self.train_data, self.test_data = SkeletonDataset.get_padded_dataset(self.train_data, self.test_data,
+                                                                                 self.train_dim)
 
         # Define training parameters
         self.epochs = epochs
@@ -198,7 +204,7 @@ class NetworkTrainer(Trainer):
         else:
             x, y = data
             prediction = net.predict(x)
-            if len(prediction.shape) == 1:
+            if prediction.shape[1] == 1:
                 prediction = prediction.squeeze(1)
                 prediction = np.round(prediction)
             else:
@@ -216,11 +222,20 @@ class NetworkTrainer(Trainer):
 
     def show_model(self):
         print("DL MODEL:")
-        attributes = self.net.__dict__
-        for attr in attributes.keys():
-            val = attributes[attr]
-            if issubclass(type(val), nn.Module):
-                print(attr, "-" * (20 - len(attr)), val)
+
+        if self.net_type not in self.keras_networks:
+            attributes = self.net.__dict__
+            for attr in attributes.keys():
+                val = attributes[attr]
+                if issubclass(type(val), nn.Module):
+                    print(attr, "-" * (20 - len(attr)), val)
+        else:
+            layers = self.net.model.layers
+            for layer in layers:
+                print(" >", layer.name)
+
+                if isinstance(layer, TCN):
+                    TCNNetwork.show_structure(layer)
 
 
 # Main
@@ -247,20 +262,20 @@ if __name__ == "__main__":
 
     # Define the model
     folder_name1 = "models_for_JAI"
-    model_name1 = "conv2d"
-    net_type1 = NetType.CONV2D
-    binary_output1 = False
-    '''trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
+    model_name1 = "conv1d"
+    net_type1 = NetType.CONV1D
+    binary_output1 = True
+    trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
                               train_data=train_data1, test_data=test_data1, epochs=300, lr=0.01,
                               binary_output=binary_output1)
 
     # Train the model
     trainer1.summarize_performance()
     trainer1.train(model_name1)
-    trainer1.summarize_performance(show_process=True)'''
+    trainer1.summarize_performance(show_process=True)
 
     # Load trained model
-    use_keras1 = False
+    '''use_keras1 = True
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
                                   use_keras=use_keras1)
-    trainer1.summarize_performance(show_process=True)
+    trainer1.summarize_performance(show_process=True)'''
