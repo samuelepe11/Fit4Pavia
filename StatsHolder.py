@@ -31,11 +31,11 @@ class StatsHolder:
 
         # Compute the Macro-Averaged statistics for the multiclass scenario
         if isinstance(self.f1, np.ndarray):
-            self.sens = np.mean(self.f1)
-            self.spec = np.mean(self.f1)
-            self.precis = np.mean(self.f1)
+            self.sens = np.mean(self.sens)
+            self.spec = np.mean(self.spec)
+            self.precis = np.mean(self.precis)
             self.f1 = np.mean(self.f1)
-            self.mcc = np.mean(self.f1)
+            self.mcc = np.mean(self.mcc)
 
     def print_ci(self, ci_alpha=0.05):
         print(" Number of samples = " + str(self.n_vals))

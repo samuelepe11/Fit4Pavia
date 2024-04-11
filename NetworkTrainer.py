@@ -262,7 +262,7 @@ if __name__ == "__main__":
 
     # Define the model
     folder_name1 = "models_for_JAI"
-    model_name1 = "conv1d"
+    model_name1 = "trial_0"
     net_type1 = NetType.CONV1D
     binary_output1 = True
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
@@ -270,12 +270,12 @@ if __name__ == "__main__":
                               binary_output=binary_output1)
 
     # Train the model
-    trainer1.summarize_performance()
+    '''trainer1.summarize_performance()
     trainer1.train(model_name1)
-    trainer1.summarize_performance(show_process=True)
+    trainer1.summarize_performance(show_process=True)'''
 
     # Load trained model
-    '''use_keras1 = True
+    use_keras1 = True
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
                                   use_keras=use_keras1)
-    trainer1.summarize_performance(show_process=True)'''
+    trainer1.summarize_performance(show_process=True)

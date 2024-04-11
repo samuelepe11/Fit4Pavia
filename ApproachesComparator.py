@@ -168,14 +168,18 @@ class ApproachesComparator:
         # Print test means and CIs
         print(self.descr1.upper() + ":")
         print("Test mean accuracy: " + str(round(self.simulator1.mean_test_stats.acc * 100, 2)) + "% >",
-              self.simulator1.mean_test_stats.acc_ci)
+              self.simulator1.mean_test_stats.acc_ci, "> std: " +
+              str(round(self.simulator1.dev_test_stats.acc * 100, 2)) + "%")
         print("Test mean F1-score: " + str(round(self.simulator1.mean_test_stats.f1 * 100, 2)) + "% >",
-              self.simulator1.mean_test_stats.f1_ci)
+              self.simulator1.mean_test_stats.f1_ci, "> std: " +
+              str(round(self.simulator1.dev_test_stats.f1 * 100, 2)) + "%")
         print(self.descr2.upper() + ":")
         print("Test mean accuracy: " + str(round(self.simulator2.mean_test_stats.acc * 100, 2)) + "% >",
-              self.simulator2.mean_test_stats.acc_ci)
+              self.simulator2.mean_test_stats.acc_ci, "> std: " +
+              str(round(self.simulator2.dev_test_stats.acc * 100, 2)) + "%")
         print("Test mean F1-score: " + str(round(self.simulator2.mean_test_stats.f1 * 100, 2)) + "% >",
-              self.simulator2.mean_test_stats.f1_ci)
+              self.simulator2.mean_test_stats.f1_ci, "> std: " +
+              str(round(self.simulator2.dev_test_stats.f1 * 100, 2)) + "%")
         print()
 
         for stat in self.comparable_stats:
@@ -265,7 +269,7 @@ if __name__ == "__main__":
     working_dir1 = "./../"
     sim_name1 = "sit_random_division"
     sim_name2 = "sit_patient_division"
-    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid"
+    folder_name1 = "patientVSrandom_division_tcn"
     alpha1 = 0.05
 
     # Define comparator

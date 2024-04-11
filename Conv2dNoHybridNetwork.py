@@ -15,11 +15,9 @@ class Conv2dNoHybridNetwork(Conv1dNoHybridNetwork):
         # Define attributes
         if num_classes == 2:
             self.layer_dims = [16, 32]
-            self.hidden_dim = 32
         else:
             # TODO
             self.layer_dims = [16, 32]
-            self.hidden_dim = 32
 
         # Layers
         self.model = Sequential()

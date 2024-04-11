@@ -18,7 +18,6 @@ class Conv1dNoHybridNetwork:
         self.num_classes = num_classes
         if num_classes == 2:
             self.layer_dims = [16, 32]
-            self.hidden_dim = 32
             if not binary_output:
                 self.output_neurons = 1
             else:
@@ -26,7 +25,6 @@ class Conv1dNoHybridNetwork:
         else:
             # TODO
             self.layer_dims = [16, 32]
-            self.hidden_dim = 32
             self.output_neurons = num_classes
 
         # Layers

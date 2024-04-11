@@ -34,12 +34,12 @@ class SimpleClassifierTrainer(Trainer):
             params = [50, "gini"]
             self.model = RandomForestClassifier(n_estimators=params[0], criterion=params[1])
         elif ml_algorithm == MLAlgorithmType.AB:
-            # params = [DecisionTreeClassifier(max_depth=1), 100, 1]  # Number of estimators
+            # params = [DecisionTreeClassifier(max_depth=1), 100, 1]  #Base classifier, number of estimators and LR
             params = [DecisionTreeClassifier(max_depth=3), 300, 1]
             self.model = AdaBoostClassifier(estimator=params[0], n_estimators=params[1], learning_rate=params[2],
                                             algorithm="SAMME")
         elif ml_algorithm == MLAlgorithmType.MLP:
-            # params = [(64,), 0.01]  # Hidden layer sizes and initial learning rate
+            # params = [(64,), 0.01]  # Hidden layer sizes and initial LR
             params = [(64,), 0.01]
             self.model = MLPClassifier(hidden_layer_sizes=params[0], learning_rate_init=params[1])
         elif ml_algorithm == MLAlgorithmType.KNN:
