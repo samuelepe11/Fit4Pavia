@@ -111,7 +111,7 @@ if __name__ == "__main__":
     target_layer1 = "conv2"
     target_class1 = 0
     explainer_type1 = ExplainerType.GC
-    show1 = True
-    switch_map_format1 = True
+    show1 = False
+    switch_map_format1 = False
     system1.get_cam(item_name=item_name1, target_layer=target_layer1, target_class=target_class1,
                     explainer_type=explainer_type1, show=show1, switch_map_format=switch_map_format1)

@@ -29,7 +29,7 @@ class NetworkTrainer(Trainer):
     keras_networks = [NetType.CONV1D_NO_HYBRID, NetType.CONV2D_NO_HYBRID, NetType.TCN]
 
     def __init__(self, net_type, working_dir, folder_name, train_data, test_data, epochs, lr,
-                 batch_size=default_batch_size, binary_output=False):
+                 batch_size=default_batch_size, binary_output=False, normalize_input=False):
         super().__init__(working_dir, folder_name, train_data, test_data)
 
         # Initialize attributes
@@ -43,6 +43,10 @@ class NetworkTrainer(Trainer):
             self.multiclass = True
         else:
             self.multiclass = False
+
+        self.normalize_input = normalize_input
+        self.attr_mean = 0
+        self.attr_std = 1
 
         self.descr_train = None
         self.descr_test = None
@@ -96,7 +100,7 @@ class NetworkTrainer(Trainer):
         self.use_cuda = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.use_cuda else "cpu")
 
-    def train(self, filename=None):
+    def train(self, filename=None, show_epochs=False):
         if self.use_cuda:
             net = self.net.cuda()
             self.criterion = self.criterion.cuda()
@@ -106,7 +110,12 @@ class NetworkTrainer(Trainer):
         if self.net_type not in self.keras_networks:
             use_keras = False
             net.train()
-            temp_train_data = list(self.train_data)
+
+            if self.normalize_input:
+                temp_train_data, self.attr_mean, self.attr_std = SkeletonDataset.normalize_data(self.train_data)
+            else:
+                temp_train_data = list(self.train_data)
+
             for epoch in range(self.epochs):
                 train_loss = 0
                 random.shuffle(temp_train_data)
@@ -135,6 +144,10 @@ class NetworkTrainer(Trainer):
 
                 train_loss = train_loss / len(self.train_data)
                 self.train_losses.append(train_loss)
+
+                if show_epochs:
+                    print("Epoch " + str(epoch + 1) + "/" + str(self.epochs) + " completed... train loss = " +
+                          str(np.round(train_loss, 5)))
         else:
             use_keras = True
             x, y = self.train_data
@@ -157,6 +170,9 @@ class NetworkTrainer(Trainer):
         else:
             data = self.test_data
             dim = self.test_dim
+
+        if self.normalize_input:
+            data = SkeletonDataset.normalize_data(data, self.attr_mean, self.attr_std)
 
         if self.net_type not in self.keras_networks:
             net.eval()
@@ -250,8 +266,8 @@ if __name__ == "__main__":
 
     # Define variables
     working_dir1 = "./../"
-    desired_classes1 = [8, 9]
-    # desired_classes1 = list(range(1, 11))
+    # desired_classes1 = [8, 9]
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 69, 70, 71, 80, 99]
 
     # Define the data
     train_perc = 0.7
@@ -261,21 +277,24 @@ if __name__ == "__main__":
                                  data_names=train_data1.remaining_instances)
 
     # Define the model
-    folder_name1 = "models_for_JAI"
-    model_name1 = "trial_0"
+    folder_name1 = "patientVSrandom_division_conv1d_15classes"
+    model_name1 = "test2"
     net_type1 = NetType.CONV1D
-    binary_output1 = True
+    binary_output1 = False
+    normalize_input1 = True
+    # lr1 = 0.01
+    lr1 = 0.001
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=300, lr=0.01,
-                              binary_output=binary_output1)
+                              train_data=train_data1, test_data=test_data1, epochs=300, lr=lr1,
+                              binary_output=binary_output1, normalize_input=normalize_input1)
 
     # Train the model
-    '''trainer1.summarize_performance()
-    trainer1.train(model_name1)
-    trainer1.summarize_performance(show_process=True)'''
+    trainer1.summarize_performance()
+    trainer1.train(model_name1, show_epochs=True)
+    trainer1.summarize_performance(show_process=True)
 
     # Load trained model
-    use_keras1 = True
+    use_keras1 = False
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
                                   use_keras=use_keras1)
     trainer1.summarize_performance(show_process=True)

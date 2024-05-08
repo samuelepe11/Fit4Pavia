@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import cv2
+import matplotlib
 import matplotlib.pyplot as plt
 
 from SkeletonDataset import SkeletonDataset
@@ -71,6 +72,7 @@ class JAISystem:
             map = JAISystem.normalize_map(map)
 
         # Plot each frame
+        matplotlib.use("TkAgg")
         plt.ion()
         fig = plt.figure(figsize=(5, 5))
         ax = fig.add_subplot(111, projection="3d")
@@ -134,15 +136,15 @@ class JAISystem:
 
     def display_output(self, item_name, target_layer, target_class, x, y, explainer_type, map, output_prob,
                        switch_map_format=False, show=False):
-        title = item_name + " (" + str(int(y)) + ") - CAM " + str(target_class) + "(" + str(np.round(output_prob * 100,
-                                                                                                     2)) + "%)"
+        title = "CAM for class " + str(target_class) + " (" + str(np.round(output_prob * 100, 2)) + "%) - true label: "\
+                + str(int(y))
         if not show:
             plt.figure()
             plt.imshow(map, "jet")
             plt.title(title)
             plt.savefig(
                 self.results_dir + self.system_name + "/" + item_name + "_" + explainer_type.value + target_layer +
-                "_" + str(target_class) + ".png", format="png", bbox_inches="tight", pad_inches=0)
+                "_" + str(target_class) + ".png", format="png", bbox_inches="tight", pad_inches=0, dpi=300)
             plt.close()
         else:
             self.show_skeleton(item=x, map=map, title=title, switch_map_format=switch_map_format)

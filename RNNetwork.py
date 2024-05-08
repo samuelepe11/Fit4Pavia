@@ -20,7 +20,6 @@ class RNNetwork(nn.Module):
             self.in_channels = 75
             self.hidden_dim = 32
             self.num_layers = 1
-            self.output_neurons = 1
             self.output_neurons = num_classes
 
         # Layers

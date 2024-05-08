@@ -51,8 +51,6 @@ class SkeletonDataset(Dataset):
                "finger-guessing game (playing rock-paper-scissors)"]
     actions = [a.replace("/", " or ") for a in actions]
 
-    n_patients = 40
-    list_pat = list(range(1, n_patients + 1))
     n_cameras = 3
     list_cam = list(range(1, n_cameras + 1))
     n_setups = 32
@@ -67,11 +65,22 @@ class SkeletonDataset(Dataset):
                    (17, 18), (18, 19), (7, 21), (0, 16)]
 
     def __init__(self, working_dir, desired_classes, group_dict=None, data_perc=None, divide_pt=False, data_names=None,
-                 dataset_name=None):
+                 dataset_name=None, subfolder=None):
         self.working_dir = working_dir
         self.data_path = working_dir + self.data_fold
         self.results_dir = working_dir + self.results_fold
+        self.subfolder = subfolder
+        if subfolder is not None:
+            if subfolder not in os.listdir(self.results_dir):
+                os.mkdir(self.results_dir + subfolder)
+            self.results_dir += subfolder + "/"
+
         self.classes = desired_classes
+        if np.all([c <= 60 for c in desired_classes]):
+            self.n_patients = 40
+        else:
+            self.n_patients = 106
+        self.list_pat = list(range(1, self.n_patients + 1))
 
         if dataset_name is None:
             self.dataset_name = ""
@@ -291,7 +300,7 @@ class SkeletonDataset(Dataset):
         if not expand_dim:
             plt.figure(figsize=(4, 4))
         else:
-            plt.figure(figsize=(10, 10))
+            plt.figure(figsize=(15, 10))
         img_fold = self.results_dir
         if action is not None:
             img_fold += action + "/"
@@ -438,21 +447,41 @@ class SkeletonDataset(Dataset):
         original_x = np.array(original_x)
         return original_x, dims_original
 
+    @staticmethod
+    def normalize_data(data, mean=None, std=None):
+        data_list, label_list = data.get_list(to_tensor=False)
+        flag = False
+        if mean is None or std is None:
+            temp_data_list = np.concatenate(data_list)
+            mean = np.mean(temp_data_list, 0)
+            std = np.std(temp_data_list, 0)
+            flag = True
+
+        data_list = [(x - mean) / std for x in data_list]
+        data = list(zip(data_list, label_list))
+
+        if not flag:
+            return data
+        else:
+            return data, mean, std
+
 
 # Main
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
     # desired_classes1 = [8, 9]
-    desired_classes1 = list(range(1, 11))
+    # subfolder1 = "binary"
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 69, 70, 71, 80, 99]
+    subfolder1 = "15classes"
 
-    # Analyse data of the selected class
+    # Analyse data of the selected class (with restrictions)
     dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, group_dict={"C": 2, "R": 2},
-                               dataset_name="C2R2")
+                               dataset_name="C2R2", subfolder=subfolder1)
     dataset1.show_statistics()
     dataset1.show_lengths()
 
     # Analyse data of the selected class
-    dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1)
+    dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, subfolder=subfolder1)
     dataset1.show_statistics()
     dataset1.show_lengths()
