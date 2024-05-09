@@ -258,7 +258,7 @@ if __name__ == "__main__":
     seed1 = 111099
     working_dir1 = "./../"
     # desired_classes1 = [8, 9]
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 69, 70, 71, 80, 99]
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
 
     data_group_dict1 = {"C": 2, "R": 2}
     model_type1 = NetType.CONV1D

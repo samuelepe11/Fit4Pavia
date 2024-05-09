@@ -31,7 +31,8 @@ class JAISystem:
                                           use_keras=self.use_keras, folder_path=self.models_dir)
         self.trainer.show_model()
 
-    def show_skeleton(self, item, map=None, title=None, switch_map_format=False, slowing_parameter=3):
+    def show_skeleton(self, item, map=None, title=None, switch_map_format=False, static_joints=False,
+                      slowing_parameter=3):
         # Extract x, y, z coordinates of joints
         if isinstance(item, str):
             positions, _ = self.get_item_from_name(item)
@@ -62,6 +63,10 @@ class JAISystem:
                 is_1d = True
                 map = np.mean(map, axis=1)
                 map = JAISystem.normalize_map(map)
+            else:
+                if static_joints:
+                    map = np.mean(map, axis=0, keepdims=True)
+                    map = JAISystem.normalize_map(map)
 
         if map is not None and not is_1d and not to_2d:
             # Average map values among different axis of the same joint

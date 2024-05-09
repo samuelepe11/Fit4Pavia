@@ -267,7 +267,7 @@ if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
     # desired_classes1 = [8, 9]
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 69, 70, 71, 80, 99]
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
 
     # Define the data
     train_perc = 0.7
@@ -278,14 +278,13 @@ if __name__ == "__main__":
 
     # Define the model
     folder_name1 = "patientVSrandom_division_conv1d_15classes"
-    model_name1 = "test2"
-    net_type1 = NetType.CONV1D
+    model_name1 = "conv1d_15classes"
+    net_type1 = NetType.CONV2D
     binary_output1 = False
     normalize_input1 = True
-    # lr1 = 0.01
-    lr1 = 0.001
+    lr1 = 0.001  # 0.01
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=300, lr=lr1,
+                              train_data=train_data1, test_data=test_data1, epochs=100, lr=lr1,
                               binary_output=binary_output1, normalize_input=normalize_input1)
 
     # Train the model

@@ -22,7 +22,7 @@ class Conv1dNetwork(nn.Module):
             else:
                 self.output_neurons = 2
         else:
-            self.layer_dims = [self.in_channels, 128, 128, 128]
+            self.layer_dims = [self.in_channels, 16, 32, 64]
             self.hidden_dim = 128
             self.num_rnn_layers = 1
             self.output_neurons = num_classes
@@ -39,11 +39,11 @@ class Conv1dNetwork(nn.Module):
             self.__dict__["batch_norm" + str(i)] = nn.BatchNorm1d(self.layer_dims[i + 1])
 
         if self.num_classes == 2:
-            self.rnn = nn.RNN(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim, num_layers=self.num_rnn_layers,
-                              batch_first=True)
+            self.rnn = nn.RNN(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim,
+                              num_layers=self.num_rnn_layers, batch_first=True)
         else:
-            self.rnn = nn.LSTM(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim, num_layers=self.num_rnn_layers,
-                               batch_first=True)
+            self.rnn = nn.LSTM(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim,
+                               num_layers=self.num_rnn_layers, batch_first=True)
 
         self.fc = nn.Linear(self.hidden_dim, out_features=self.output_neurons)
 
@@ -80,10 +80,10 @@ class Conv1dNetwork(nn.Module):
                 target_activation = out
                 h = out.register_hook(self.activations_hook)
 
-                if self.num_classes == 2:
-                    out = self.__dict__["pool" + str(i)](out)
-                out = self.__dict__["relu" + str(i)](out)
-                out = self.__dict__["batch_norm" + str(i)](out)
+            if self.num_classes == 2:
+                out = self.__dict__["pool" + str(i)](out)
+            out = self.__dict__["relu" + str(i)](out)
+            out = self.__dict__["batch_norm" + str(i)](out)
 
         if self.is_2d:
             out = torch.mean(out, dim=2)

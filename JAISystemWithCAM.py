@@ -107,11 +107,11 @@ if __name__ == "__main__":
     system1 = JAISystemWithCAM(working_dir=working_dir1, model_name=model_name1, system_name=system_name1)
 
     # Explain one item
-    item_name1 = "S006C002P001R002A008"
+    item_name1 = "S001C002P001R002A009"
     target_layer1 = "conv2"
-    target_class1 = 0
+    target_class1 = 1
     explainer_type1 = ExplainerType.GC
-    show1 = False
+    show1 = True
     switch_map_format1 = False
     system1.get_cam(item_name=item_name1, target_layer=target_layer1, target_class=target_class1,
                     explainer_type=explainer_type1, show=show1, switch_map_format=switch_map_format1)

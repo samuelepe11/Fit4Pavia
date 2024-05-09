@@ -472,7 +472,7 @@ if __name__ == "__main__":
     working_dir1 = "./../"
     # desired_classes1 = [8, 9]
     # subfolder1 = "binary"
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 69, 70, 71, 80, 99]
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
     subfolder1 = "15classes"
 
     # Analyse data of the selected class (with restrictions)

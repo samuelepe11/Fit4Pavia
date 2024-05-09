@@ -1,5 +1,6 @@
 # Import packages
 import random
+import numpy as np
 
 from Simulator import Simulator
 from SkeletonDataset import SkeletonDataset
@@ -31,8 +32,12 @@ class PatientDivisionSimulator(Simulator):
                                                                   group_dict=self.data_group_dict)
 
             # Divide the dataset
-            num_train_pt = round(SkeletonDataset.n_patients * self.train_perc)
-            selected_patients = random.sample(range(1, SkeletonDataset.n_patients + 1), num_train_pt)
+            if np.all([c <= 60 for c in self.desired_classes]):
+                n_patients = 40
+            else:
+                n_patients = 106
+            num_train_pt = round(n_patients * self.train_perc)
+            selected_patients = random.sample(range(1, n_patients + 1), num_train_pt)
             ind = FeatureExtractor.find_patient_indexes(working_dir=self.working_dir, feature_file=self.feature_file,
                                                         patients=selected_patients, group_dict=self.data_group_dict)
 

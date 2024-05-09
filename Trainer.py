@@ -133,4 +133,21 @@ class Trainer:
                     x, y = network_trainer.train_data
                     network_trainer.net.train(x, y, 1, 1)
                     network_trainer.net.model.load_weights(file_path_net)
+
+        if "is_2d" not in network_trainer.net.__dict__.keys():
+            # Handle previous versions of the Conv1dNetwork class (no is_2d attribute)
+            network_trainer.net.is_2d = False
+
+        if "num_classes" not in network_trainer.net.__dict__.keys():
+            # Handle previous versions of the Conv1dNetwork class (no num_classes attribute)
+            network_trainer.net.num_classes = 2
+
+        if "multiclass" not in network_trainer.__dict__.keys():
+            # Handle previous versions of the NetworkTrainer class (no multiclass attribute)
+            network_trainer.multiclass = False
+
+        if "normalize_input" not in network_trainer.__dict__.keys():
+            # Handle previous versions of the NetworkTrainer class (no normalize_input attribute)
+            network_trainer.normalize_input = False
+
         return network_trainer
