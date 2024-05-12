@@ -4,6 +4,7 @@ import torch.nn as nn
 import random
 import numpy as np
 import keras
+import time
 from silence_tensorflow import silence_tensorflow
 from tcn import TCN
 
@@ -36,6 +37,8 @@ class NetworkTrainer(Trainer):
         self.train_dim = len(self.train_data)
         self.test_dim = len(self.test_data)
         self.net_type = net_type
+        self.start_time = None
+        self.end_time = None
 
         self.num_classes = len(self.train_data.classes)
         self.binary_output = binary_output
@@ -101,6 +104,9 @@ class NetworkTrainer(Trainer):
         self.device = torch.device("cuda" if self.use_cuda else "cpu")
 
     def train(self, filename=None, show_epochs=False):
+        if show_epochs:
+            self.start_time = time.time()
+
         if self.use_cuda:
             net = self.net.cuda()
             self.criterion = self.criterion.cuda()
@@ -157,7 +163,12 @@ class NetworkTrainer(Trainer):
         self.net = net
         Trainer.save_model(self, filename, use_keras=use_keras)
 
-    def test(self, set_type=SetType.TRAINING):
+        if show_epochs:
+            self.end_time = time.time()
+            duration = self.end_time - self.start_time
+            print("Execution time:", round(duration / 60, 4), "min")
+
+    def test(self, set_type=SetType.TRAINING, show_cm=False):
         if self.use_cuda:
             net = self.net.cuda()
             self.criterion = self.criterion.cuda()
@@ -171,17 +182,17 @@ class NetworkTrainer(Trainer):
             data = self.test_data
             dim = self.test_dim
 
+        # Store class labels
+        class_labels = data.classes
+
         if self.normalize_input:
             data = SkeletonDataset.normalize_data(data, self.attr_mean, self.attr_std)
 
+        y_true = []
+        y_pred = []
         if self.net_type not in self.keras_networks:
             net.eval()
             loss = 0
-            acc = 0
-            tp = 0
-            tn = 0
-            fp = 0
-            fn = 0
             with torch.no_grad():
                 for x, y in data:
                     x = torch.from_numpy(x)
@@ -206,17 +217,17 @@ class NetworkTrainer(Trainer):
                         prediction = (output >= 0.5).float()
                     else:
                         prediction = np.argmax(output)
-                    acc += (prediction == y).item()
 
-                    # Confusion matrix definition
-                    cm = Trainer.compute_confusion_matrix(y, prediction)
-                    tp += cm[0]
-                    tn += cm[1]
-                    fp += cm[2]
-                    fn += cm[3]
+                    # Store values for Confusion Matrix calculation
+                    y_true.append(y)
+                    y_pred.append(prediction)
+
+            y_true = np.asarray(y_true)
+            y_pred = np.asarray(y_pred)
 
             loss /= dim
-            acc /= dim
+            acc = np.sum(y_true == y_pred) / dim
+
         else:
             x, y = data
             prediction = net.predict(x)
@@ -227,13 +238,26 @@ class NetworkTrainer(Trainer):
                 prediction = np.argmax(prediction, axis=1)
 
             loss, acc = net.evaluate(x, y)
-            cm = Trainer.compute_confusion_matrix(y, prediction)
-            tp = cm[0]
-            tn = cm[1]
-            fp = cm[2]
-            fn = cm[3]
 
+            # Store values for Confusion Matrix calculation
+            y_true = y
+            y_pred = prediction
+
+        cm = Trainer.compute_binary_confusion_matrix(y_true, y_pred)
+        tp = cm[0]
+        tn = cm[1]
+        fp = cm[2]
+        fn = cm[3]
         stats_holder = StatsHolder(loss, acc, tp, tn, fp, fn)
+
+        # Compute multiclass confusion matrix
+        cm_name = set_type.value + "_cm"
+        if show_cm:
+            img_path = self.results_dir + cm_name + ".png"
+        else:
+            img_path = None
+        self.__dict__[cm_name] = Trainer.compute_multiclass_confusion_matrix(y_true, y_pred, class_labels, img_path)
+
         return stats_holder
 
     def show_model(self):
@@ -277,14 +301,15 @@ if __name__ == "__main__":
                                  data_names=train_data1.remaining_instances)
 
     # Define the model
-    folder_name1 = "patientVSrandom_division_conv1d_15classes"
-    model_name1 = "conv1d_15classes"
+    folder_name1 = "models_for_JAI"
+    model_name1 = "conv2d_15classes"
     net_type1 = NetType.CONV2D
     binary_output1 = False
     normalize_input1 = True
-    lr1 = 0.001  # 0.01
+    # lr1 = 0.01
+    lr1 = 0.001
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=100, lr=lr1,
+                              train_data=train_data1, test_data=test_data1, epochs=300, lr=lr1,
                               binary_output=binary_output1, normalize_input=normalize_input1)
 
     # Train the model
@@ -296,4 +321,5 @@ if __name__ == "__main__":
     use_keras1 = False
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
                                   use_keras=use_keras1)
-    trainer1.summarize_performance(show_process=True)
+    show_cm1 = True
+    trainer1.summarize_performance(show_process=True, show_cm=show_cm1)

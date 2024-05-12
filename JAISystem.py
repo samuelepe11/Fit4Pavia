@@ -65,13 +65,17 @@ class JAISystem:
                 map = JAISystem.normalize_map(map)
             else:
                 if static_joints:
-                    map = np.mean(map, axis=0, keepdims=True)
+                    map = np.mean(map, axis=0)
                     map = JAISystem.normalize_map(map)
 
         if map is not None and not is_1d and not to_2d:
-            # Average map values among different axis of the same joint
-            joint_map = [np.mean(map[:, (i * 3):(i + 1) * 3], axis=1) for i in range(map.shape[1] // 3)]
-            map = np.stack(joint_map, 1)
+            if not static_joints:
+                # Average map values among different axis of the same joint
+                joint_map = [np.mean(map[:, (i * 3):(i + 1) * 3], axis=1) for i in range(map.shape[1] // 3)]
+                map = np.stack(joint_map, 1)
+            else:
+                # Average map values among different axis of the same joint
+                map = [np.mean(map[(i * 3):(i + 1) * 3]) for i in range(map.shape[0] // 3)]
 
             # Adjust color range
             map = JAISystem.normalize_map(map)
@@ -99,10 +103,13 @@ class JAISystem:
 
             # Plot joints
             if map is None or is_1d:
-                color = "g"
+                color = "gray"
                 cmap = None
             else:
-                color = map[frame]
+                if not static_joints:
+                    color = map[frame]
+                else:
+                    color = map
                 cmap = "jet"
 
             if not to_2d:
@@ -118,7 +125,7 @@ class JAISystem:
                 joint1_pos = (frame_x[connection[0]], frame_y[connection[0]], frame_z[connection[0]])
                 joint2_pos = (frame_x[connection[1]], frame_y[connection[1]], frame_z[connection[1]])
                 ax.plot([joint1_pos[0], joint2_pos[0]], [joint1_pos[1], joint2_pos[1]], [joint1_pos[2], joint2_pos[2]],
-                        c="r")
+                        c="gray")
 
             if to_2d:
                 # Draw joints of the same color
@@ -140,7 +147,7 @@ class JAISystem:
         return x, y
 
     def display_output(self, item_name, target_layer, target_class, x, y, explainer_type, map, output_prob,
-                       switch_map_format=False, show=False):
+                       switch_map_format=False, static_joints=False, show=False):
         title = "CAM for class " + str(target_class) + " (" + str(np.round(output_prob * 100, 2)) + "%) - true label: "\
                 + str(int(y))
         if not show:
@@ -152,7 +159,8 @@ class JAISystem:
                 "_" + str(target_class) + ".png", format="png", bbox_inches="tight", pad_inches=0, dpi=300)
             plt.close()
         else:
-            self.show_skeleton(item=x, map=map, title=title, switch_map_format=switch_map_format)
+            self.show_skeleton(item=x, map=map, title=title, switch_map_format=switch_map_format,
+                               static_joints=static_joints)
 
     @staticmethod
     def adjust_map(map, x, is_2d=True):

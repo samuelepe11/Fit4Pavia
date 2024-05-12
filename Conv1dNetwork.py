@@ -22,7 +22,7 @@ class Conv1dNetwork(nn.Module):
             else:
                 self.output_neurons = 2
         else:
-            self.layer_dims = [self.in_channels, 16, 32, 64]
+            self.layer_dims = [self.in_channels, 64, 64, 64]
             self.hidden_dim = 128
             self.num_rnn_layers = 1
             self.output_neurons = num_classes
@@ -37,6 +37,7 @@ class Conv1dNetwork(nn.Module):
             self.__dict__["pool" + str(i)] = nn.MaxPool1d(kernel_size=2)
             self.__dict__["relu" + str(i)] = nn.ReLU()
             self.__dict__["batch_norm" + str(i)] = nn.BatchNorm1d(self.layer_dims[i + 1])
+            self.__dict__["dropout" + str(i)] = nn.Dropout1d(p=0.1)
 
         if self.num_classes == 2:
             self.rnn = nn.RNN(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim,
@@ -84,6 +85,8 @@ class Conv1dNetwork(nn.Module):
                 out = self.__dict__["pool" + str(i)](out)
             out = self.__dict__["relu" + str(i)](out)
             out = self.__dict__["batch_norm" + str(i)](out)
+            if self.num_classes > 2:
+                out = self.__dict__["dropout" + str(i)](out)
 
         if self.is_2d:
             out = torch.mean(out, dim=2)

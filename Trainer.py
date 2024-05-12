@@ -6,11 +6,13 @@ import torch
 import dill
 import keras
 import os
+from torcheval.metrics.functional import multiclass_confusion_matrix
 
 from SetType import SetType
 from StatsHolder import StatsHolder
 from NetType import NetType
 from TCNNetwork import TCNNetwork
+from SkeletonDataset import SkeletonDataset
 
 
 # Class
@@ -31,17 +33,17 @@ class Trainer:
         self.train_data = train_data
         self.test_data = test_data
 
-    def test(self, set_type=SetType.TRAINING):
+    def test(self, set_type=SetType.TRAINING, show_cm=False):
         print("The model has not been defined.")
         train_stats = StatsHolder(float("inf"), 0, 0, 0, 0, 0)
         return train_stats
 
-    def summarize_performance(self, show_process=False):
+    def summarize_performance(self, show_process=False, show_cm=False):
         # Show final losses
-        train_stats = self.test(set_type=SetType.TRAINING)
+        train_stats = self.test(set_type=SetType.TRAINING, show_cm=show_cm)
         print("Train loss = " + str(round(train_stats.loss, 5)) + " - Train accuracy = " + str(round(train_stats.acc *
                                                                                                      100, 7)) + "%")
-        test_stats = self.test(set_type=SetType.TEST)
+        test_stats = self.test(set_type=SetType.TEST, show_cm=show_cm)
         print("Test loss = " + str(round(test_stats.loss, 5)) + " - Test accuracy = " + str(round(test_stats.acc * 100,
                                                                                                   7)) + "%")
 
@@ -55,7 +57,7 @@ class Trainer:
             plt.show()
 
     @staticmethod
-    def compute_confusion_matrix(y_true, y_predicted, classes=None):
+    def compute_binary_confusion_matrix(y_true, y_predicted, classes=None):
         if classes is None:
             # Classical binary computation (class 0 as negative and class 1 as positive)
             tp = (y_predicted == 1) & (y_true == 1)
@@ -75,12 +77,36 @@ class Trainer:
             for c in classes:
                 y_true_i = (y_true == c).astype(int)
                 y_predicted_i = (y_predicted == c).astype(int)
-                out_i = Trainer.compute_confusion_matrix(y_true_i, y_predicted_i, classes=None)
+                out_i = Trainer.compute_binary_confusion_matrix(y_true_i, y_predicted_i, classes=None)
                 out.append(out_i)
 
             out = np.asarray(out)
             out = [out[:, i] for i in range(out.shape[1])]
             return out
+
+    @staticmethod
+    def compute_multiclass_confusion_matrix(y_true, y_pred, classes, img_path=None):
+        # Compute confusion matrix
+        y_true = torch.tensor(y_true)
+        y_pred = torch.tensor(y_pred)
+        cm = multiclass_confusion_matrix(y_pred, y_true, len(classes), normalize="pred")
+
+        # Draw heatmap
+        if img_path is not None:
+            Trainer.draw_multiclass_confusion_matrix(cm, classes, img_path)
+
+        return cm
+
+    @staticmethod
+    def draw_multiclass_confusion_matrix(cm, classes, img_path):
+        plt.figure(figsize=(10, 10))
+        labels = [" ".join(SkeletonDataset.actions[c - 1].split(" ")[:2]) for c in classes]
+
+        plt.imshow(cm, cmap="jet")
+        plt.xticks(range(len(classes)), labels, rotation=45)
+        plt.yticks(range(len(classes)), labels, rotation=45)
+        plt.savefig(img_path, dpi=300)
+        plt.close()
 
     @staticmethod
     def save_model(trainer, model_name, use_keras,

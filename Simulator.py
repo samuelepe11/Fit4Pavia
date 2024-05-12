@@ -52,6 +52,10 @@ class Simulator:
         self.mean_test_stats = None
         self.dev_train_stats = None
         self.dev_test_stats = None
+        self.train_cm_list = []
+        self.train_cm_avg = None
+        self.test_cm_list = []
+        self.test_cm_avg = None
 
         # Create a folder to store models
         if folder_name not in os.listdir(working_dir + self.results_fold):
@@ -87,11 +91,22 @@ class Simulator:
             # Store results
             self.store_model_results(trainer)
 
+        # Compute average confusion matrix
+        self.train_cm_avg = np.mean(self.train_cm_list, axis=0)
+        Trainer.draw_multiclass_confusion_matrix(self.train_cm_avg, self.desired_classes,
+                                                 self.results_dir + "train_cm.png")
+        self.test_cm_avg = np.mean(self.test_cm_list, axis=0)
+        Trainer.draw_multiclass_confusion_matrix(self.test_cm_avg, self.desired_classes,
+                                                 self.results_dir + "test_cm.png")
+
     def store_model_results(self, trainer):
-        train_stats = trainer.test(set_type=SetType.TRAINING)
+        train_stats = trainer.test(set_type=SetType.TRAINING, show_cm=False)
         self.train_stats.append(train_stats)
-        test_stats = trainer.test(set_type=SetType.TEST)
+        self.train_cm_list.append(trainer.train_cm)
+
+        test_stats = trainer.test(set_type=SetType.TEST, show_cm=False)
         self.test_stats.append(test_stats)
+        self.test_cm_list.append(trainer.test_cm)
 
     def reload_simulation_results(self):
         for file in os.listdir(self.results_dir + self.simulator_name):

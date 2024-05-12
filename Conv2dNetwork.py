@@ -16,8 +16,8 @@ class Conv2dNetwork(Conv1dNetwork):
             self.hidden_dim = 64
             self.num_rnn_layers = 1
         else:
-            self.layer_dims = [1, 16, 32, 64]
-            self.hidden_dim = 128
+            self.layer_dims = [1, 64, 64, 64]
+            self.hidden_dim = 64
             self.num_rnn_layers = 1
         self.num_conv_layers = len(self.layer_dims) - 1
 
@@ -29,6 +29,7 @@ class Conv2dNetwork(Conv1dNetwork):
                                                                kernel_size=3, stride=1, padding=1)
             self.__dict__["pool" + str(i)] = nn.MaxPool2d(kernel_size=(2, 2))
             self.__dict__["batch_norm" + str(i)] = nn.BatchNorm2d(self.layer_dims[i + 1])
+            self.__dict__["dropout" + str(i)] = nn.Dropout2d(p=0.1)
 
         if self.num_classes == 2:
             self.rnn = nn.RNN(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim,

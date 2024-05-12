@@ -14,11 +14,12 @@ class JAISystemWithCAM(JAISystem):
     def __init__(self, working_dir, system_name, model_name, use_keras=False):
         super().__init__(working_dir, system_name, model_name, use_keras)
 
-    def get_cam(self, item_name, target_layer, target_class, explainer_type, show=False, switch_map_format=False):
+    def get_cam(self, item_name, target_layer, target_class, explainer_type, show=False, switch_map_format=False,
+                static_joints=False):
         x, y = self.get_item_from_name(item_name)
         cam, output_prob = JAISystemWithCAM.draw_cam(self.trainer, x, target_layer, target_class, explainer_type)
         self.display_output(item_name, target_layer, target_class, x, y, explainer_type, cam, output_prob,
-                            switch_map_format, show)
+                            switch_map_format, static_joints, show)
 
     def get_item_from_name(self, item_name):
         if item_name + SkeletonDataset.extension in self.trainer.train_data.data_files:
@@ -113,5 +114,7 @@ if __name__ == "__main__":
     explainer_type1 = ExplainerType.GC
     show1 = True
     switch_map_format1 = False
+    static_joints1 = True
     system1.get_cam(item_name=item_name1, target_layer=target_layer1, target_class=target_class1,
-                    explainer_type=explainer_type1, show=show1, switch_map_format=switch_map_format1)
+                    explainer_type=explainer_type1, show=show1, switch_map_format=switch_map_format1,
+                    static_joints=static_joints1)

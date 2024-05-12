@@ -17,7 +17,8 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
         super().__init__(working_dir, system_name, model_name, use_keras=True)
         self.use_keras = True
 
-    def get_cam(self, item_name, target_layer, target_class, explainer_type, show=False, switch_map_format=False):
+    def get_cam(self, item_name, target_layer, target_class, explainer_type, show=False, switch_map_format=False,
+                static_joints=False):
         x, y = self.get_item_from_name(item_name)
         cam, output_prob = JAISystemWithCAMFromKeras.draw_cam(self.trainer, x, target_layer, target_class,
                                                               explainer_type)
@@ -26,7 +27,7 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
         dim = dim[0]
         cam = cam[:dim, :]
         self.display_output(item_name, target_layer, target_class, x, y, explainer_type, cam, output_prob,
-                            switch_map_format, show)
+                            switch_map_format, static_joints, show)
 
     def get_item_from_name(self, item_name):
         item_name += SkeletonDataset.extension
@@ -171,16 +172,18 @@ if __name__ == "__main__":
     working_dir1 = "./../"
 
     # Define the system
-    model_name1 = "conv1d_no_hybrid"
+    model_name1 = "conv2d_no_hybrid"
     system_name1 = "DD_" + model_name1
     system1 = JAISystemWithCAMFromKeras(working_dir=working_dir1, model_name=model_name1, system_name=system_name1)
 
     # Explain one item
     item_name1 = "S008C002P001R002A008"
-    target_layer1 = "conv1d_1"
+    target_layer1 = "conv2d_1"
     target_class1 = 0
     explainer_type1 = ExplainerType.VC
     show1 = True
-    switch_map_format1 = True
+    switch_map_format1 = False
+    static_joints1 = False
     system1.get_cam(item_name=item_name1, target_layer=target_layer1, target_class=target_class1,
-                    explainer_type=explainer_type1, show=show1, switch_map_format=switch_map_format1)
+                    explainer_type=explainer_type1, show=show1, switch_map_format=switch_map_format1,
+                    static_joints=static_joints1)
