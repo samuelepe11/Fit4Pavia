@@ -243,7 +243,7 @@ class NetworkTrainer(Trainer):
             y_true = y
             y_pred = prediction
 
-        cm = Trainer.compute_binary_confusion_matrix(y_true, y_pred)
+        cm = Trainer.compute_binary_confusion_matrix(y_true, y_pred, range(len(class_labels)))
         tp = cm[0]
         tn = cm[1]
         fp = cm[2]
@@ -303,19 +303,20 @@ if __name__ == "__main__":
     # Define the model
     folder_name1 = "models_for_JAI"
     model_name1 = "conv2d_15classes"
-    net_type1 = NetType.CONV2D
+    net_type1 = NetType.CONV1D
     binary_output1 = False
     normalize_input1 = True
     # lr1 = 0.01
-    lr1 = 0.001
+    # lr1 = 0.001
+    lr1 = 0.0001
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
                               train_data=train_data1, test_data=test_data1, epochs=300, lr=lr1,
                               binary_output=binary_output1, normalize_input=normalize_input1)
 
     # Train the model
-    trainer1.summarize_performance()
-    trainer1.train(model_name1, show_epochs=True)
-    trainer1.summarize_performance(show_process=True)
+    # trainer1.summarize_performance()
+    # trainer1.train(model_name1, show_epochs=True)
+    # trainer1.summarize_performance(show_process=True)
 
     # Load trained model
     use_keras1 = False

@@ -92,12 +92,15 @@ class Simulator:
             self.store_model_results(trainer)
 
         # Compute average confusion matrix
+        self.compute_confusion_matrix()
+
+    def compute_confusion_matrix(self):
         self.train_cm_avg = np.mean(self.train_cm_list, axis=0)
         Trainer.draw_multiclass_confusion_matrix(self.train_cm_avg, self.desired_classes,
-                                                 self.results_dir + "train_cm.png")
+                                                 self.results_dir + self.simulator_name + "_train_cm.png")
         self.test_cm_avg = np.mean(self.test_cm_list, axis=0)
         Trainer.draw_multiclass_confusion_matrix(self.test_cm_avg, self.desired_classes,
-                                                 self.results_dir + "test_cm.png")
+                                                 self.results_dir + self.simulator_name + "_test_cm.png")
 
     def store_model_results(self, trainer):
         train_stats = trainer.test(set_type=SetType.TRAINING, show_cm=False)
@@ -114,6 +117,7 @@ class Simulator:
                                          file.removesuffix(".pt"), self.use_keras)
             self.store_model_results(trainer)
             print("Information associated to " + file + " updated!")
+        self.compute_confusion_matrix()
 
     def log_simulation_results(self, model_type=None):
         # Handle some test versions
@@ -300,15 +304,15 @@ if __name__ == "__main__":
     #                        normalize_data=normalize_data1)
 
     # Load simulator
-    # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
+    simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
 
     # Run simulation
-    simulator1.run_simulation(seed1)
+    #simulator1.run_simulation(seed1)
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
-    # simulator1.reload_simulation_results()
+    simulator1.reload_simulation_results()
 
     # Assess and store simulator
     simulator1.assess_simulation(ci_alpha=0.05)
     Simulator.save_simulator(simulator1, simulator_name1)
-    simulator1.log_simulation_results()
+    #simulator1.log_simulation_results()

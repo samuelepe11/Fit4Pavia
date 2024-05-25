@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
 import torch.nn.utils.rnn as rnn_utils
-import tensorflow as tf
 from torch.utils.data import Dataset
 from tslearn.preprocessing import TimeSeriesScalerMinMax
 

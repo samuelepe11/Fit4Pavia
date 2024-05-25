@@ -41,11 +41,13 @@ class Trainer:
     def summarize_performance(self, show_process=False, show_cm=False):
         # Show final losses
         train_stats = self.test(set_type=SetType.TRAINING, show_cm=show_cm)
-        print("Train loss = " + str(round(train_stats.loss, 5)) + " - Train accuracy = " + str(round(train_stats.acc *
-                                                                                                     100, 7)) + "%")
+        print("Train loss = " + str(round(train_stats.loss, 5)) + " - Train accuracy = "
+              + str(round(train_stats.acc * 100, 7)) + "%" + " - Train F1-score = " + str(round(train_stats.f1 * 100,
+                                                                                                7)) + "%")
         test_stats = self.test(set_type=SetType.TEST, show_cm=show_cm)
-        print("Test loss = " + str(round(test_stats.loss, 5)) + " - Test accuracy = " + str(round(test_stats.acc * 100,
-                                                                                                  7)) + "%")
+        print("Test loss = " + str(round(test_stats.loss, 5)) + " - Test accuracy = "
+              + str(round(test_stats.acc * 100, 7)) + "%" + " - Test F1-score = " + str(round(test_stats.f1 * 100, 7))
+              + "%")
 
         # Show training curves
         if show_process:
@@ -89,7 +91,7 @@ class Trainer:
         # Compute confusion matrix
         y_true = torch.tensor(y_true)
         y_pred = torch.tensor(y_pred)
-        cm = multiclass_confusion_matrix(y_pred, y_true, len(classes), normalize="pred")
+        cm = multiclass_confusion_matrix(y_pred, y_true, len(classes))
 
         # Draw heatmap
         if img_path is not None:
@@ -99,13 +101,19 @@ class Trainer:
 
     @staticmethod
     def draw_multiclass_confusion_matrix(cm, classes, img_path):
-        plt.figure(figsize=(10, 10))
+        plt.figure(figsize=(8, 8))
         labels = [" ".join(SkeletonDataset.actions[c - 1].split(" ")[:2]) for c in classes]
 
         plt.imshow(cm, cmap="jet")
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                val = cm[i, j]
+                plt.text(i, j, f"{val.item()}", ha="center", va="center", color="black")
         plt.xticks(range(len(classes)), labels, rotation=45)
+        plt.xlabel("Predicted class")
         plt.yticks(range(len(classes)), labels, rotation=45)
-        plt.savefig(img_path, dpi=300)
+        plt.ylabel("True class")
+        plt.savefig(img_path, dpi=300, bbox_inches="tight")
         plt.close()
 
     @staticmethod

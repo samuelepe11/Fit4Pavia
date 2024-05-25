@@ -52,17 +52,18 @@ if __name__ == "__main__":
     seed1 = 111099
     working_dir1 = "./../"
     # desired_classes1 = [8, 9]
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 69, 70, 71, 80, 99]
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
 
     data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.CONV1D
+    model_type1 = NetType.CONV2D
     # model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
-    n_rep1 = 100
+    n_rep1 = 1
     train_epochs1 = 300
     # train_lr1 = 0.01
-    train_lr1 = 0.001
-    folder_name1 = "patientVSrandom_division_conv1d_15classes"
+    train_lr1 = 0.001  # Multiclass Conv2D
+    # train_lr1 = 0.0001  # Multiclass Conv1D
+    folder_name1 = "patientVSrandom_division_conv2d_15classes"
     simulator_name1 = "sit_patient_division"
 
     feature_file1 = "hand_crafted_features_global_10classes.csv"
@@ -81,10 +82,10 @@ if __name__ == "__main__":
     #                                       normalize_data=normalize_data1)
 
     # Load simulator
-    # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
+    simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
 
     # Run simulation
-    simulator1.run_simulation(seed1)
+    # simulator1.run_simulation(seed1)
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
     # simulator1.reload_simulation_results()

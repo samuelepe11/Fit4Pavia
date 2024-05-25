@@ -1,6 +1,6 @@
 # Import packages
 import numpy as np
-from scipy.stats import norm
+
 
 
 # Class
@@ -27,7 +27,7 @@ class StatsHolder:
             self.spec = tn / (tn + fp + self.eps)
             self.precis = tp / (tp + fp + self.eps)
             self.f1 = 2 * self.sens * self.precis / (self.sens + self.precis + self.eps)
-            self.mcc = (tp * tn - fp * fn) / np.sqrt((tp + fp) * (fn + tn) * (tp + fn) * (fp + tn) + self.eps)
+            self.mcc = (tp * tn - fp * fn) / np.sqrt(np.float64(tp + fp) * (fn + tn) * (tp + fn) * (fp + tn) + self.eps)
 
         # Compute the Macro-Averaged statistics for the multiclass scenario
         if isinstance(self.f1, np.ndarray):

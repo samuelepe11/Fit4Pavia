@@ -267,9 +267,9 @@ class ApproachesComparator:
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
-    sim_name1 = "sit_random_division"
-    sim_name2 = "sit_patient_division"
-    folder_name1 = "patientVSrandom_division_tcn"
+    sim_name1 = "random_division"
+    sim_name2 = "patient_division"
+    folder_name1 = "patientVSrandom_division_conv1d_15classes"
     alpha1 = 0.05
 
     # Define comparator

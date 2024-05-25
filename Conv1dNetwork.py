@@ -22,7 +22,7 @@ class Conv1dNetwork(nn.Module):
             else:
                 self.output_neurons = 2
         else:
-            self.layer_dims = [self.in_channels, 64, 64, 64]
+            self.layer_dims = [self.in_channels, 64, 64, 64, 64, 64]
             self.hidden_dim = 128
             self.num_rnn_layers = 1
             self.output_neurons = num_classes
