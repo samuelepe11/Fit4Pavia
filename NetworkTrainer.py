@@ -30,7 +30,7 @@ class NetworkTrainer(Trainer):
     keras_networks = [NetType.CONV1D_NO_HYBRID, NetType.CONV2D_NO_HYBRID, NetType.TCN]
 
     def __init__(self, net_type, working_dir, folder_name, train_data, test_data, epochs, lr,
-                 batch_size=default_batch_size, binary_output=False, normalize_input=False):
+                 batch_size=default_batch_size, binary_output=False, normalize_input=False, use_cuda=True):
         super().__init__(working_dir, folder_name, train_data, test_data)
 
         # Initialize attributes
@@ -76,6 +76,7 @@ class NetworkTrainer(Trainer):
             else:
                 self.net = Conv2dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output)
             # Redefine datasets
+            self.classes = self.train_data.classes
             self.descr_train = self.train_data.data_files
             self.descr_test = self.test_data.data_files
             self.train_data, self.test_data = SkeletonDataset.get_padded_dataset(self.train_data, self.test_data,
@@ -100,7 +101,7 @@ class NetworkTrainer(Trainer):
             self.optimizer = keras.optimizers.Adam(learning_rate=self.lr)
             self.net.compile(optimizer=self.optimizer, loss=self.criterion)
 
-        self.use_cuda = torch.cuda.is_available()
+        self.use_cuda = torch.cuda.is_available() and use_cuda
         self.device = torch.device("cuda" if self.use_cuda else "cpu")
 
     def train(self, filename=None, show_epochs=False):
@@ -108,14 +109,13 @@ class NetworkTrainer(Trainer):
             self.start_time = time.time()
 
         if self.use_cuda:
-            net = self.net.cuda()
+            net = NetworkTrainer.set_cuda(self.net)
             self.criterion = self.criterion.cuda()
         else:
             net = self.net
 
         if self.net_type not in self.keras_networks:
             use_keras = False
-            net.train()
 
             if self.normalize_input:
                 temp_train_data, self.attr_mean, self.attr_std = SkeletonDataset.normalize_data(self.train_data)
@@ -123,6 +123,7 @@ class NetworkTrainer(Trainer):
                 temp_train_data = list(self.train_data)
 
             for epoch in range(self.epochs):
+                self.set_training(True)
                 train_loss = 0
                 random.shuffle(temp_train_data)
 
@@ -157,7 +158,7 @@ class NetworkTrainer(Trainer):
         else:
             use_keras = True
             x, y = self.train_data
-            history = net.train(x, y, epochs=self.epochs, batch_size=self.batch_size)
+            history = net.train(x, y, epochs=self.epochs, batch_size=self.batch_size, show_epochs=show_epochs)
             self.train_losses = history.history["loss"]
 
         self.net = net
@@ -168,9 +169,9 @@ class NetworkTrainer(Trainer):
             duration = self.end_time - self.start_time
             print("Execution time:", round(duration / 60, 4), "min")
 
-    def test(self, set_type=SetType.TRAINING, show_cm=False):
+    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False):
         if self.use_cuda:
-            net = self.net.cuda()
+            net = NetworkTrainer.set_cuda(self.net)
             self.criterion = self.criterion.cuda()
         else:
             net = self.net
@@ -183,15 +184,21 @@ class NetworkTrainer(Trainer):
             dim = self.test_dim
 
         # Store class labels
-        class_labels = data.classes
+        if self.net_type not in self.keras_networks:
+            class_labels = data.classes
+            is_keras = False
+        else:
+            class_labels = self.classes
+            is_keras = True
 
         if self.normalize_input:
-            data = SkeletonDataset.normalize_data(data, self.attr_mean, self.attr_std)
+            data = SkeletonDataset.normalize_data(data, self.attr_mean, self.attr_std, is_keras=is_keras)
 
         y_true = []
         y_pred = []
         if self.net_type not in self.keras_networks:
-            net.eval()
+            if not avoid_eval:  # Avoid issues with the binary models and the Conv1D and Conv2D multiclass models
+                self.set_training(False)
             loss = 0
             with torch.no_grad():
                 for x, y in data:
@@ -201,6 +208,7 @@ class NetworkTrainer(Trainer):
 
                     y = torch.tensor(y)
                     y = y.to(self.device)
+
                     if self.multiclass:
                         # Solve issues related to the CrossEntropyLoss
                         y = y.long()
@@ -277,6 +285,30 @@ class NetworkTrainer(Trainer):
                 if isinstance(layer, TCN):
                     TCNNetwork.show_structure(layer)
 
+    def set_training(self, training=True):
+        if training:
+            self.net.train()
+        else:
+            self.net.eval()
+
+        # Set specific layers
+        for layer in self.net.__dict__.keys():
+            if isinstance(self.net.__dict__[layer], nn.Module):
+                # Set training/eval mode per each interested layer
+                if "drop" in layer or "batch_norm" in layer:
+                    self.net.__dict__[layer].training = training
+
+    @staticmethod
+    def set_cuda(net):
+        net.cuda()
+        # Set specific layers
+        for layer in net.__dict__.keys():
+            if isinstance(net.__dict__[layer], nn.Module):
+                # Set cuda devise for parallelization
+                net.__dict__[layer].cuda()
+
+        return net
+
 
 # Main
 if __name__ == "__main__":
@@ -301,26 +333,28 @@ if __name__ == "__main__":
                                  data_names=train_data1.remaining_instances)
 
     # Define the model
-    folder_name1 = "models_for_JAI"
-    model_name1 = "conv2d_15classes"
-    net_type1 = NetType.CONV1D
+    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid_15classes"
+    model_name1 = "test"
+    net_type1 = NetType.CONV2D_NO_HYBRID
     binary_output1 = False
     normalize_input1 = True
-    # lr1 = 0.01
-    # lr1 = 0.001
-    lr1 = 0.0001
+    lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
+    # lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN
+    # lr1 = 0.0001  # Multiclass Conv1D
+    use_cuda1 = False
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
                               train_data=train_data1, test_data=test_data1, epochs=300, lr=lr1,
-                              binary_output=binary_output1, normalize_input=normalize_input1)
+                              binary_output=binary_output1, normalize_input=normalize_input1, use_cuda=use_cuda1)
 
     # Train the model
-    # trainer1.summarize_performance()
-    # trainer1.train(model_name1, show_epochs=True)
-    # trainer1.summarize_performance(show_process=True)
+    trainer1.summarize_performance()
+    trainer1.train(model_name1, show_epochs=True)
+    trainer1.summarize_performance(show_process=True)
 
     # Load trained model
-    use_keras1 = False
+    use_keras1 = True
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
                                   use_keras=use_keras1)
+
     show_cm1 = True
     trainer1.summarize_performance(show_process=True, show_cm=show_cm1)

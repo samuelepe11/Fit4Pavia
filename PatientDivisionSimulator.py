@@ -13,9 +13,10 @@ from MLAlgorithmType import MLAlgorithmType
 class PatientDivisionSimulator(Simulator):
 
     def __init__(self, desired_classes, n_rep, simulator_name, working_dir, folder_name, model_type, train_perc,
-                 data_group_dict=None, train_epochs=None, train_lr=None, feature_file=None, normalize_data=False):
+                 data_group_dict=None, train_epochs=None, train_lr=None, feature_file=None, normalize_data=False,
+                 use_cuda=True):
         super().__init__(desired_classes, n_rep, simulator_name, working_dir, folder_name, model_type, train_perc,
-                         data_group_dict, train_epochs, train_lr, feature_file, normalize_data)
+                         data_group_dict, train_epochs, train_lr, feature_file, normalize_data, use_cuda)
 
     def divide_dataset(self):
         # Perform a division per patient
@@ -55,16 +56,17 @@ if __name__ == "__main__":
     desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
 
     data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.CONV2D
+    model_type1 = NetType.CONV1D_NO_HYBRID
     # model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
-    n_rep1 = 1
-    train_epochs1 = 300
-    # train_lr1 = 0.01
-    train_lr1 = 0.001  # Multiclass Conv2D
-    # train_lr1 = 0.0001  # Multiclass Conv1D
-    folder_name1 = "patientVSrandom_division_conv2d_15classes"
-    simulator_name1 = "sit_patient_division"
+    n_rep1 = 2
+    train_epochs1 = 2
+    # train_lr1 = 0.01 # Binary or Multiclass Conv2DNoHybrid
+    # train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid
+    train_lr1 = 0.0001  # Multiclass Conv1D
+    folder_name1 = "patientVSrandom_division_conv1d_no_hybrid_15classes"
+    simulator_name1 = "patient_division"
+    use_cuda1 = False
 
     feature_file1 = "hand_crafted_features_global_10classes.csv"
     normalize_data1 = True
@@ -74,7 +76,7 @@ if __name__ == "__main__":
                                           simulator_name=simulator_name1, working_dir=working_dir1,
                                           folder_name=folder_name1, data_group_dict=data_group_dict1,
                                           model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
-                                          train_lr=train_lr1, normalize_data=normalize_data1)
+                                          train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1)
     # simulator1 = PatientDivisionSimulator(desired_classes=desired_classes1, n_rep=n_rep1,
     #                                       simulator_name=simulator_name1, working_dir=working_dir1,
     #                                       folder_name=folder_name1, data_group_dict=data_group_dict1,
@@ -82,13 +84,14 @@ if __name__ == "__main__":
     #                                       normalize_data=normalize_data1)
 
     # Load simulator
-    simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
+    # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
 
     # Run simulation
-    # simulator1.run_simulation(seed1)
+    simulator1.run_simulation(seed1)
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
-    # simulator1.reload_simulation_results()
+    # avoid_eval1 = True
+    # simulator1.reload_simulation_results(avoid_eval=avoid_eval1)
 
     # Assess and store simulator
     simulator1.assess_simulation(ci_alpha=0.05)

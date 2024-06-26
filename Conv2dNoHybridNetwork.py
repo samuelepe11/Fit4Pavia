@@ -17,7 +17,7 @@ class Conv2dNoHybridNetwork(Conv1dNoHybridNetwork):
             self.layer_dims = [16, 32]
         else:
             # TODO
-            self.layer_dims = [16, 32]
+            self.layer_dims = [64, 64]
 
         # Layers
         self.model = Sequential()

@@ -447,17 +447,29 @@ class SkeletonDataset(Dataset):
         return original_x, dims_original
 
     @staticmethod
-    def normalize_data(data, mean=None, std=None):
-        data_list, label_list = data.get_list(to_tensor=False)
+    def normalize_data(data, mean=None, std=None, is_keras=False):
+        if not is_keras:
+            data_list, label_list = data.get_list(to_tensor=False)
+        else:
+            data_list, label_list = data
+
         flag = False
         if mean is None or std is None:
-            temp_data_list = np.concatenate(data_list)
-            mean = np.mean(temp_data_list, 0)
-            std = np.std(temp_data_list, 0)
+            if not is_keras:
+                temp_data_list = np.concatenate(data_list)
+                ax = 0
+            else:
+                temp_data_list = data_list
+                ax = (0, 1)
+            mean = np.mean(temp_data_list, ax)
+            std = np.std(temp_data_list, ax)
             flag = True
 
         data_list = [(x - mean) / std for x in data_list]
-        data = list(zip(data_list, label_list))
+        if not is_keras:
+            data = list(zip(data_list, label_list))
+        else:
+            data = (np.concatenate([x[np.newaxis, :, :] for x in data_list], 0), label_list)
 
         if not flag:
             return data

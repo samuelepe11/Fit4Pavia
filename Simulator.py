@@ -24,7 +24,8 @@ class Simulator:
     results_fold = Trainer.results_fold
 
     def __init__(self, desired_classes, n_rep, simulator_name, working_dir, folder_name, model_type, train_perc,
-                 data_group_dict=None, train_epochs=None, train_lr=None, feature_file=None, normalize_data=False):
+                 data_group_dict=None, train_epochs=None, train_lr=None, feature_file=None, normalize_data=False,
+                 use_cuda=True):
         # Initialize attributes
         self.desired_classes = desired_classes
         self.n_rep = n_rep
@@ -45,6 +46,7 @@ class Simulator:
         self.train_lr = train_lr
         self.feature_file = feature_file
         self.normalize_data = normalize_data
+        self.use_cuda = torch.cuda.is_available() and use_cuda
 
         self.train_stats = []
         self.test_stats = []
@@ -81,7 +83,7 @@ class Simulator:
                 trainer = NetworkTrainer(net_type=self.model_type, working_dir=self.working_dir,
                                          folder_name=self.folder_name, train_data=train_data, test_data=test_data,
                                          epochs=self.train_epochs, lr=self.train_lr,
-                                         normalize_input=self.normalize_data)
+                                         normalize_input=self.normalize_data, use_cuda=self.use_cuda)
             else:
                 trainer = SimpleClassifierTrainer(ml_algorithm=self.model_type, working_dir=self.working_dir,
                                                   folder_name=self.folder_name, train_data=train_data,
@@ -95,27 +97,27 @@ class Simulator:
         self.compute_confusion_matrix()
 
     def compute_confusion_matrix(self):
-        self.train_cm_avg = np.mean(self.train_cm_list, axis=0)
+        self.train_cm_avg = (np.round(np.mean(self.train_cm_list, axis=0))).astype(int)
         Trainer.draw_multiclass_confusion_matrix(self.train_cm_avg, self.desired_classes,
                                                  self.results_dir + self.simulator_name + "_train_cm.png")
-        self.test_cm_avg = np.mean(self.test_cm_list, axis=0)
+        self.test_cm_avg = (np.round(np.mean(self.test_cm_list, axis=0))).astype(int)
         Trainer.draw_multiclass_confusion_matrix(self.test_cm_avg, self.desired_classes,
                                                  self.results_dir + self.simulator_name + "_test_cm.png")
 
-    def store_model_results(self, trainer):
-        train_stats = trainer.test(set_type=SetType.TRAINING, show_cm=False)
+    def store_model_results(self, trainer, avoid_eval=False):
+        train_stats = trainer.test(set_type=SetType.TRAINING, show_cm=False, avoid_eval=avoid_eval)
         self.train_stats.append(train_stats)
         self.train_cm_list.append(trainer.train_cm)
 
-        test_stats = trainer.test(set_type=SetType.TEST, show_cm=False)
+        test_stats = trainer.test(set_type=SetType.TEST, show_cm=False, avoid_eval=avoid_eval)
         self.test_stats.append(test_stats)
         self.test_cm_list.append(trainer.test_cm)
 
-    def reload_simulation_results(self):
+    def reload_simulation_results(self, avoid_eval=False):
         for file in os.listdir(self.results_dir + self.simulator_name):
             trainer = Trainer.load_model(self.working_dir, self.folder_name, self.simulator_name + "/" +
                                          file.removesuffix(".pt"), self.use_keras)
-            self.store_model_results(trainer)
+            self.store_model_results(trainer, avoid_eval=avoid_eval)
             print("Information associated to " + file + " updated!")
         self.compute_confusion_matrix()
 
@@ -280,15 +282,17 @@ if __name__ == "__main__":
     desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
 
     data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.CONV1D
+    model_type1 = NetType.CONV1D_NO_HYBRID
     # model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
-    n_rep1 = 100
-    train_epochs1 = 300
-    # train_lr1 = 0.01
-    train_lr1 = 0.001
-    folder_name1 = "patientVSrandom_division_conv1d_15classes"
-    simulator_name1 = "sit_random_division"
+    n_rep1 = 2
+    train_epochs1 = 2
+    # train_lr1 = 0.01 # Binary or Multiclass Conv2DNoHybrid
+    train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid
+    # train_lr1 = 0.0001  # Multiclass Conv1D
+    folder_name1 = "patientVSrandom_division_conv1d_no_hybrid_15classes"
+    simulator_name1 = "random_division"
+    use_cuda1 = False
 
     feature_file1 = "hand_crafted_features_global_10classes.csv"
     normalize_data1 = True
@@ -297,22 +301,23 @@ if __name__ == "__main__":
     simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
                            working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
                            model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
-                           train_lr=train_lr1, normalize_data=normalize_data1)
+                           train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1)
     # simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
     #                        working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
     #                        model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1,
     #                        normalize_data=normalize_data1)
 
     # Load simulator
-    simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
+    # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
 
     # Run simulation
-    #simulator1.run_simulation(seed1)
+    simulator1.run_simulation(seed1)
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
-    simulator1.reload_simulation_results()
+    # avoid_eval1 = True
+    # simulator1.reload_simulation_results(avoid_eval=avoid_eval1)
 
     # Assess and store simulator
     simulator1.assess_simulation(ci_alpha=0.05)
     Simulator.save_simulator(simulator1, simulator_name1)
-    #simulator1.log_simulation_results()
+    simulator1.log_simulation_results()

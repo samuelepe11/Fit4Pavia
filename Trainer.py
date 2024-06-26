@@ -56,7 +56,8 @@ class Trainer:
             plt.title("Training curves")
             plt.ylabel("Loss")
             plt.xlabel("Epoch")
-            plt.show()
+            plt.savefig(self.results_dir + "training_curves.png", dpi=300, bbox_inches="tight")
+            plt.close()
 
     @staticmethod
     def compute_binary_confusion_matrix(y_true, y_predicted, classes=None):
@@ -91,7 +92,7 @@ class Trainer:
         # Compute confusion matrix
         y_true = torch.tensor(y_true)
         y_pred = torch.tensor(y_pred)
-        cm = multiclass_confusion_matrix(y_pred, y_true, len(classes))
+        cm = multiclass_confusion_matrix(y_pred, y_true.to(torch.int64), len(classes))
 
         # Draw heatmap
         if img_path is not None:
@@ -108,7 +109,7 @@ class Trainer:
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
                 val = cm[i, j]
-                plt.text(i, j, f"{val.item()}", ha="center", va="center", color="black")
+                plt.text(j, i, f"{val.item()}", ha="center", va="center", color="black")
         plt.xticks(range(len(classes)), labels, rotation=45)
         plt.xlabel("Predicted class")
         plt.yticks(range(len(classes)), labels, rotation=45)

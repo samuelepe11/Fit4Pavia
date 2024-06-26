@@ -23,8 +23,7 @@ class Conv1dNoHybridNetwork:
             else:
                 self.output_neurons = 2
         else:
-            # TODO
-            self.layer_dims = [16, 32]
+            self.layer_dims = [64, 64]
             self.output_neurons = num_classes
 
         # Layers
@@ -47,14 +46,14 @@ class Conv1dNoHybridNetwork:
     def compile(self, optimizer, loss):
         self.model.compile(optimizer=optimizer, loss=loss, metrics=["accuracy"])
 
-    def train(self, x, y, epochs, batch_size):
+    def train(self, x, y, epochs, batch_size, show_epochs=False):
         if self.conv2_flag:
             x = np.expand_dims(x, 3)
 
         if self.output_neurons > 1:
             y = to_categorical(y, self.output_neurons)
 
-        history = self.model.fit(x, y, epochs=epochs, batch_size=batch_size, verbose=0)
+        history = self.model.fit(x, y, epochs=epochs, batch_size=batch_size, verbose=2 * int(show_epochs))
         return history
 
     def predict(self, x):

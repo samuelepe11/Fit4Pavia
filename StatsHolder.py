@@ -1,6 +1,6 @@
 # Import packages
 import numpy as np
-
+from scipy.stats import norm
 
 
 # Class
