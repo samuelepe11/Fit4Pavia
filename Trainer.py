@@ -7,6 +7,8 @@ import dill
 import keras
 import os
 from torcheval.metrics.functional import multiclass_confusion_matrix
+from pandas import DataFrame
+from calfram.calibrationframework import select_probability, reliabilityplot, calibrationdiagnosis, classwise_calibration
 
 from SetType import SetType
 from StatsHolder import StatsHolder
@@ -32,22 +34,34 @@ class Trainer:
         self.results_dir += folder_name + "/"
         self.train_data = train_data
         self.test_data = test_data
+        self.model_name = None
 
-    def test(self, set_type=SetType.TRAINING, show_cm=False):
+    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False):
         print("The model has not been defined.")
         train_stats = StatsHolder(float("inf"), 0, 0, 0, 0, 0)
         return train_stats
 
-    def summarize_performance(self, show_process=False, show_cm=False):
+    def summarize_performance(self, show_process=False, show_cm=False, assess_calibration=False, avoid_eval=False):
+        if show_cm or assess_calibration:
+            if self.model_name not in os.listdir(self.results_dir):
+                os.mkdir(self.results_dir + self.model_name)
+
         # Show final losses
-        train_stats = self.test(set_type=SetType.TRAINING, show_cm=show_cm)
+        train_stats = self.test(set_type=SetType.TRAINING, show_cm=show_cm, assess_calibration=assess_calibration,
+                                avoid_eval=avoid_eval)
         print("Train loss = " + str(round(train_stats.loss, 5)) + " - Train accuracy = "
               + str(round(train_stats.acc * 100, 7)) + "%" + " - Train F1-score = " + str(round(train_stats.f1 * 100,
                                                                                                 7)) + "%")
-        test_stats = self.test(set_type=SetType.TEST, show_cm=show_cm)
+        if assess_calibration:
+            Trainer.show_calibration_table(train_stats, "training")
+
+        test_stats = self.test(set_type=SetType.TEST, show_cm=show_cm, assess_calibration=assess_calibration,
+                               avoid_eval=avoid_eval)
         print("Test loss = " + str(round(test_stats.loss, 5)) + " - Test accuracy = "
               + str(round(test_stats.acc * 100, 7)) + "%" + " - Test F1-score = " + str(round(test_stats.f1 * 100, 7))
               + "%")
+        if assess_calibration:
+            Trainer.show_calibration_table(test_stats, "test")
 
         # Show training curves
         if show_process:
@@ -56,8 +70,36 @@ class Trainer:
             plt.title("Training curves")
             plt.ylabel("Loss")
             plt.xlabel("Epoch")
-            plt.savefig(self.results_dir + "training_curves.png", dpi=300, bbox_inches="tight")
+            plt.savefig(self.results_dir + self.model_name + "/training_curves.png", dpi=300, bbox_inches="tight")
             plt.close()
+
+    def assess_calibration(self, y_true, y_prob, y_pred, set_type, descr=None):
+        class_scores = select_probability(y_true, y_prob, y_pred)
+
+        # Store results file
+        data = np.concatenate((y_true[:, np.newaxis], y_pred[:, np.newaxis], y_prob), axis=1)
+        titles = ["y_true", "y_pred"] + ["y_prob" + str(i) for i in range(y_prob.shape[1])]
+        if descr is not None:
+            descr = np.asarray([d.strip(SkeletonDataset.extension) for d in descr])
+            data = np.concatenate((descr[:, np.newaxis], data), axis=1)
+            titles = ["descr"] + titles
+        df = DataFrame(data, columns=titles)
+        df.to_csv(self.results_dir + self.model_name + "/" + set_type.value + "_classification_results.csv",
+                  index=False)
+
+        # Draw reliability plot
+        reliabilityplot(class_scores, strategy=10, split=False)
+        plt.xlabel("Predicted probability")
+        plt.ylabel("True probability")
+        plt.savefig(self.results_dir + self.model_name + "/" + set_type.value + "_calibration.png")
+        plt.close()
+
+        # Compute local metrics
+        results, _ = calibrationdiagnosis(class_scores, strategy=10)
+
+        # Compute global metrics
+        results_cw = classwise_calibration(results)
+        return results_cw
 
     @staticmethod
     def compute_binary_confusion_matrix(y_true, y_predicted, classes=None):
@@ -109,7 +151,7 @@ class Trainer:
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
                 val = cm[i, j]
-                plt.text(j, i, f"{val.item()}", ha="center", va="center", color="black")
+                plt.text(j, i, f"{val.item()}", ha="center", va="center", color="black", fontsize="xx-large")
         plt.xticks(range(len(classes)), labels, rotation=45)
         plt.xlabel("Predicted class")
         plt.yticks(range(len(classes)), labels, rotation=45)
@@ -169,6 +211,10 @@ class Trainer:
                     network_trainer.net.train(x, y, 1, 1)
                     network_trainer.net.model.load_weights(file_path_net)
 
+        if "model_name" not in network_trainer.__dict__.keys():
+            # Handle previous versions of the Trainer classes (no model_name attribute)
+            network_trainer.model_name = model_name
+
         if "is_2d" not in network_trainer.net.__dict__.keys():
             # Handle previous versions of the Conv1dNetwork class (no is_2d attribute)
             network_trainer.net.is_2d = False
@@ -185,4 +231,14 @@ class Trainer:
             # Handle previous versions of the NetworkTrainer class (no normalize_input attribute)
             network_trainer.normalize_input = False
 
+        if "classes" not in network_trainer.__dict__.keys():
+            # Handle previous versions of the NetworkTrainer class (no classes attribute)
+            network_trainer.classes = [8, 9]
+
         return network_trainer
+
+    @staticmethod
+    def show_calibration_table(stats, set_name):
+        print("Calibration information for", set_name.upper() + " set:")
+        for stat in stats.calibration_results.keys():
+            print(" - " + stat + ": " + str(stats.calibration_results[stat]))

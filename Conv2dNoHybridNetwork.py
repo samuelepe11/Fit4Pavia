@@ -16,7 +16,6 @@ class Conv2dNoHybridNetwork(Conv1dNoHybridNetwork):
         if num_classes == 2:
             self.layer_dims = [16, 32]
         else:
-            # TODO
             self.layer_dims = [64, 64]
 
         # Layers

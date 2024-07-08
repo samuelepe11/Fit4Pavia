@@ -20,14 +20,14 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
     def get_cam(self, item_name, target_layer, target_class, explainer_type, show=False, switch_map_format=False,
                 static_joints=False):
         x, y = self.get_item_from_name(item_name)
-        cam, output_prob = JAISystemWithCAMFromKeras.draw_cam(self.trainer, x, target_layer, target_class,
-                                                              explainer_type)
+        cam, output_prob, bar_range = JAISystemWithCAMFromKeras.draw_cam(self.trainer, x, target_layer,
+                                                                         target_class, explainer_type)
         x, dim = SkeletonDataset.remove_padding(x)
         x = x[0]
         dim = dim[0]
         cam = cam[:dim, :]
         self.display_output(item_name, target_layer, target_class, x, y, explainer_type, cam, output_prob,
-                            switch_map_format, static_joints, show)
+                            switch_map_format, static_joints, show, bar_range)
 
     def get_item_from_name(self, item_name):
         item_name += SkeletonDataset.extension
@@ -44,7 +44,7 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
         return x, y
 
     @staticmethod
-    def draw_cam(trainer, x, target_layer, target_class, explainer_type):
+    def draw_cam(trainer, x, target_layer, target_class, explainer_type, avoid_eval=False):
         net = trainer.net
         net.model.layers[-1].activation = None
 
@@ -57,18 +57,22 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
             is_2d = None
             print("The CAM method cannot be applied for the selected layer!")
 
+        if trainer.normalize_input:
+            x = (x - trainer.attr_mean) / trainer.attr_std
+        x = tf.convert_to_tensor(x)
+
         # Extract activations and gradients
-        grad_model = keras.models.Model(net.model.inputs, [desired_layer.output, net.model.output])
+        grad_model = keras.models.Model([net.model.inputs], [desired_layer.output, net.model.output])
         with tf.GradientTape() as tape:
             target_activation, output = grad_model(x)
             target_score = output[:, target_class]
-        target_activation = tf.squeeze(target_activation, axis=0)
 
         if explainer_type != ExplainerType.VC:
             target_grad = tape.gradient(target_score, target_activation)
             target_grad = tf.squeeze(target_grad, axis=0)
         else:
             target_grad = None
+        target_activation = tf.squeeze(target_activation, axis=0)
 
         # Compute CAM
         if explainer_type == ExplainerType.GC:
@@ -93,13 +97,13 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
             print("Method not defined")
             cam = None
         cam = cam.numpy()
-        cam = JAISystem.adjust_map(cam, x, is_2d)
+        cam, bar_range = JAISystem.adjust_map(cam, x, is_2d)
 
         output_prob = keras.activations.softmax(output)
         output_prob = output_prob[:, target_class]
         output_prob = output_prob.numpy()[0]
         net.model.layers[-1].activtion = "softmax"
-        return cam, output_prob
+        return cam, output_prob, bar_range
 
     @staticmethod
     def gc_map(target_activation, target_grad, is_2d=True):
@@ -170,20 +174,23 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
-
-    # Define the system
-    model_name1 = "conv2d_no_hybrid"
+    model_name1 = "conv1d_no_hybrid"
     system_name1 = "DD_" + model_name1
     system1 = JAISystemWithCAMFromKeras(working_dir=working_dir1, model_name=model_name1, system_name=system_name1)
 
     # Explain one item
-    item_name1 = "S008C002P001R002A008"
-    target_layer1 = "conv2d_1"
-    target_class1 = 0
-    explainer_type1 = ExplainerType.VC
-    show1 = True
+    item_names = ["S002C002P012R002A008", "S013C002P018R002A008"]#, "S013C002P025R002A042", "S027C002P081R002A070",
+                  #"S030C002P044R002A099"]
+    target_layer1 = "conv1d_1"
+    target_classes = range(2)
+    #target_classes = range(15)
+    explainer_types = [ExplainerType.GC, ExplainerType.HRC, ExplainerType.VC]
+    show1 = False
     switch_map_format1 = False
     static_joints1 = False
-    system1.get_cam(item_name=item_name1, target_layer=target_layer1, target_class=target_class1,
-                    explainer_type=explainer_type1, show=show1, switch_map_format=switch_map_format1,
-                    static_joints=static_joints1)
+    for item_name1 in item_names:
+        for target_class1 in target_classes:
+            for explainer_type1 in explainer_types:
+                system1.get_cam(item_name=item_name1, target_layer=target_layer1, target_class=target_class1,
+                                explainer_type=explainer_type1, show=show1, switch_map_format=switch_map_format1,
+                                static_joints=static_joints1)

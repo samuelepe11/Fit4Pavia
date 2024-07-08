@@ -60,7 +60,7 @@ class Conv1dNetwork(nn.Module):
     def activations_hook(self, grad):
         self.gradients = grad
 
-    def forward(self, x, layer_interrupt=None):
+    def forward(self, x, layer_interrupt=None, avoid_eval=False):
         # Apply network
         out = x.permute(0, 2, 1)
 
@@ -70,6 +70,9 @@ class Conv1dNetwork(nn.Module):
         # Handle previous versions of the Conv1dNetwork class (no num_conv_layers attribute)
         if "num_conv_layers" not in self.__dict__.keys():
             self.num_conv_layers = len([x for x in self.__dict__.keys() if x.startswith("conv")])
+
+        if avoid_eval:
+            torch.manual_seed(1)
 
         target_activation = None
         for i in range(self.num_conv_layers):

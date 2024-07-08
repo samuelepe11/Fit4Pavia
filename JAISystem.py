@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 from SkeletonDataset import SkeletonDataset
 from Trainer import Trainer
@@ -14,7 +15,7 @@ class JAISystem:
     models_fold = "results/models/models_for_JAI/"
     results_fold = "results/JAI/"
 
-    def __init__(self, working_dir, system_name, model_name, use_keras=False):
+    def __init__(self, working_dir, system_name, model_name, use_keras=False, avoid_eval=False):
         # Initialize attributes
         self.working_dir = working_dir
         self.models_dir = working_dir + self.models_fold
@@ -30,6 +31,8 @@ class JAISystem:
         self.trainer = Trainer.load_model(working_dir=working_dir, folder_name=None, model_name=model_name,
                                           use_keras=self.use_keras, folder_path=self.models_dir)
         self.trainer.show_model()
+
+        self.avoid_eval = avoid_eval
 
     def show_skeleton(self, item, map=None, title=None, switch_map_format=False, static_joints=False,
                       slowing_parameter=3):
@@ -147,16 +150,63 @@ class JAISystem:
         return x, y
 
     def display_output(self, item_name, target_layer, target_class, x, y, explainer_type, map, output_prob,
-                       switch_map_format=False, static_joints=False, show=False):
-        title = "CAM for class " + str(target_class) + " (" + str(np.round(output_prob * 100, 2)) + "%) - true label: "\
-                + str(int(y))
+                       switch_map_format=False, static_joints=False, show=False, bar_range=None):
+        if not self.use_keras:
+            classes = self.trainer.train_data.classes
+        else:
+            classes = self.trainer.classes
+        considered_class = SkeletonDataset.actions[classes[target_class] - 1]
+        true_class = SkeletonDataset.actions[classes[int(y)] - 1]
+        title = ("CAM for class '" + " ".join(considered_class.split(" ")[:2]) + "' (" + str(np.round(output_prob * 100, 2))
+                 + "%) - true label: '" + " ".join(true_class.split(" ")[:2]) + "'")
         if not show:
-            plt.figure()
-            plt.imshow(map, "jet")
+            if map.shape[1] > 1:
+                plt.figure(figsize=(50, 50))
+                aspect = "auto"
+                decimals = 3
+            else:
+                plt.figure(figsize=(50, 2))
+                aspect = 1
+                decimals = 2
+
+            if len(np.unique(map)) == 1 and np.unique(map) == 0:
+                norm = mcolors.Normalize(vmin=0, vmax=255)
+            else:
+                norm = None
+            plt.matshow(np.transpose(map), aspect=aspect, cmap=plt.get_cmap("jet"), norm=norm)
+
+            # Add colorbar
+            cbar = plt.colorbar()
+            if bar_range is not None:
+                if bar_range[0] == 0:
+                    minimum = int(bar_range[0])
+                else:
+                    minimum = np.round(bar_range[0], decimals)
+                if bar_range[1] == minimum:
+                    maximum = ""
+                else:
+                    maximum = str(np.round(bar_range[1], decimals))
+                cbar.ax.get_yaxis().set_ticks([cbar.vmin, cbar.vmax], labels=[str(minimum), maximum])
+
+            # Adjust axes
             plt.title(title)
-            plt.savefig(
-                self.results_dir + self.system_name + "/" + item_name + "_" + explainer_type.value + target_layer +
-                "_" + str(target_class) + ".png", format="png", bbox_inches="tight", pad_inches=0, dpi=300)
+            plt.xlabel("Time (s)")
+            data_points = list(range(0, map.shape[0], 15))
+            plt.xticks(data_points, [str(t / SkeletonDataset.fc) for t in data_points], fontsize=8)
+            if map.shape[1] > 1:
+                plt.ylabel("Skeleton joint (3D coordinates)")
+                plt.yticks(range(1, map.shape[1] + 1, 3), [s.upper() for s in SkeletonDataset.joint_names],
+                           rotation=0, fontsize=8)
+                for i in range(1, map.shape[1] // 3):
+                    plt.axhline(i * 3 - 0.5, color="black", linestyle="--", linewidth=0.5)
+            else:
+                plt.yticks([], [])
+
+            if item_name not in os.listdir(self.results_dir + self.system_name):
+                os.mkdir(self.results_dir + self.system_name + "/" + item_name)
+            plt.savefig(self.results_dir + self.system_name + "/" + item_name + "/" + explainer_type.value +
+                        target_layer + "_" + str(target_class) + ".png", format="png", bbox_inches="tight",
+                        pad_inches=0, dpi=300)
             plt.close()
         else:
             self.show_skeleton(item=x, map=map, title=title, switch_map_format=switch_map_format,
@@ -164,14 +214,14 @@ class JAISystem:
 
     @staticmethod
     def adjust_map(map, x, is_2d=True):
-        map = JAISystem.normalize_map(map)
+        map, bar_range = JAISystem.normalize_map(map)
 
         if is_2d:
             dim_reshape = (x.shape[2], x.shape[1])
         else:
             dim_reshape = (1, x.shape[1])
         map = cv2.resize(map, dim_reshape)
-        return map
+        return map, bar_range
 
     @staticmethod
     def normalize_map(map):
@@ -183,7 +233,7 @@ class JAISystem:
             else:
                 map = np.zeros(map.shape)
         else:
-            map = (map - minimum) / (maximum + minimum)
+            map = (map - minimum) / (maximum - minimum)
 
         map = np.uint8(255 * map)
-        return map
+        return map, (minimum, maximum)

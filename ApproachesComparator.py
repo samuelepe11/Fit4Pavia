@@ -269,7 +269,7 @@ if __name__ == "__main__":
     working_dir1 = "./../"
     sim_name1 = "random_division"
     sim_name2 = "patient_division"
-    folder_name1 = "patientVSrandom_division_conv1d_15classes"
+    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid_15classes"
     alpha1 = 0.05
 
     # Define comparator

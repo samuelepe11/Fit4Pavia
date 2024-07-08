@@ -65,7 +65,7 @@ class Simulator:
         if simulator_name not in os.listdir(self.results_dir):
             os.mkdir(self.results_dir + simulator_name)
 
-    def run_simulation(self, seed):
+    def run_simulation(self, seed, keep_previous_results=False):
         # Define seeds
         random.seed(seed)
         torch.manual_seed(seed)
@@ -73,12 +73,21 @@ class Simulator:
         keras.utils.set_random_seed(seed)
         silence_tensorflow()
 
+        if keep_previous_results:
+            previous_results = os.listdir(self.results_dir + self.simulator_name)
+            self.reload_simulation_results()
+
         for i in range(self.n_rep):
             # Divide the dataset: if feature
             train_data, test_data = self.divide_dataset()
 
             # Train model
+            if keep_previous_results:
+                if "trial_" + str(i) + ".pt" in previous_results:
+                    print("Trial", i, "already present...")
+                    continue
             model_name = self.simulator_name + "/trial_" + str(i)
+
             if isinstance(self.model_type, NetType):
                 trainer = NetworkTrainer(net_type=self.model_type, working_dir=self.working_dir,
                                          folder_name=self.folder_name, train_data=train_data, test_data=test_data,
@@ -282,15 +291,15 @@ if __name__ == "__main__":
     desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
 
     data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.CONV1D_NO_HYBRID
+    model_type1 = NetType.CONV2D_NO_HYBRID
     # model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
-    n_rep1 = 2
-    train_epochs1 = 2
-    # train_lr1 = 0.01 # Binary or Multiclass Conv2DNoHybrid
-    train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid
+    n_rep1 = 100
+    train_epochs1 = 300
+    train_lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
+    # train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN
     # train_lr1 = 0.0001  # Multiclass Conv1D
-    folder_name1 = "patientVSrandom_division_conv1d_no_hybrid_15classes"
+    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid_15classes"
     simulator_name1 = "random_division"
     use_cuda1 = False
 
@@ -311,7 +320,8 @@ if __name__ == "__main__":
     # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
 
     # Run simulation
-    simulator1.run_simulation(seed1)
+    keep_previous_results1 = True
+    simulator1.run_simulation(seed1, keep_previous_results=keep_previous_results1)
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
     # avoid_eval1 = True

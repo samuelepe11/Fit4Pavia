@@ -86,6 +86,7 @@ class NetworkTrainer(Trainer):
         self.epochs = epochs
         self.batch_size = batch_size
         self.lr = lr
+        self.model_name = None
 
         if self.net_type not in self.keras_networks:
             if not self.multiclass:
@@ -105,6 +106,7 @@ class NetworkTrainer(Trainer):
         self.device = torch.device("cuda" if self.use_cuda else "cpu")
 
     def train(self, filename=None, show_epochs=False):
+        self.model_name = filename
         if show_epochs:
             self.start_time = time.time()
 
@@ -169,7 +171,7 @@ class NetworkTrainer(Trainer):
             duration = self.end_time - self.start_time
             print("Execution time:", round(duration / 60, 4), "min")
 
-    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False):
+    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False):
         if self.use_cuda:
             net = NetworkTrainer.set_cuda(self.net)
             self.criterion = self.criterion.cuda()
@@ -186,9 +188,11 @@ class NetworkTrainer(Trainer):
         # Store class labels
         if self.net_type not in self.keras_networks:
             class_labels = data.classes
+            descr = data.data_files
             is_keras = False
         else:
             class_labels = self.classes
+            descr = self.__dict__["descr_" + set_type.value]
             is_keras = True
 
         if self.normalize_input:
@@ -196,6 +200,7 @@ class NetworkTrainer(Trainer):
 
         y_true = []
         y_pred = []
+        y_prob = []
         if self.net_type not in self.keras_networks:
             if not avoid_eval:  # Avoid issues with the binary models and the Conv1D and Conv2D multiclass models
                 self.set_training(False)
@@ -213,7 +218,7 @@ class NetworkTrainer(Trainer):
                         # Solve issues related to the CrossEntropyLoss
                         y = y.long()
 
-                    output = net(x)
+                    output = net(x, avoid_eval=avoid_eval)
                     output = output.squeeze()
 
                     # Cost function evaluation
@@ -229,27 +234,30 @@ class NetworkTrainer(Trainer):
                     # Store values for Confusion Matrix calculation
                     y_true.append(y)
                     y_pred.append(prediction)
+                    y_prob.append(output)
 
             y_true = np.asarray(y_true)
             y_pred = np.asarray(y_pred)
+            y_prob = np.asarray(y_prob)
 
             loss /= dim
             acc = np.sum(y_true == y_pred) / dim
 
         else:
             x, y = data
-            prediction = net.predict(x)
-            if prediction.shape[1] == 1:
-                prediction = prediction.squeeze(1)
-                prediction = np.round(prediction)
+            prediction_prob = net.predict(x)
+            if prediction_prob.shape[1] == 1:
+                prediction_prob = prediction_prob.squeeze(1)
+                prediction = np.round(prediction_prob)
             else:
-                prediction = np.argmax(prediction, axis=1)
+                prediction = np.argmax(prediction_prob, axis=1)
 
             loss, acc = net.evaluate(x, y)
 
             # Store values for Confusion Matrix calculation
             y_true = y
             y_pred = prediction
+            y_prob = prediction_prob
 
         cm = Trainer.compute_binary_confusion_matrix(y_true, y_pred, range(len(class_labels)))
         tp = cm[0]
@@ -258,10 +266,13 @@ class NetworkTrainer(Trainer):
         fn = cm[3]
         stats_holder = StatsHolder(loss, acc, tp, tn, fp, fn)
 
+        if assess_calibration:
+            stats_holder.calibration_results = self.assess_calibration(y_true, y_prob, y_pred, set_type, descr)
+
         # Compute multiclass confusion matrix
         cm_name = set_type.value + "_cm"
         if show_cm:
-            img_path = self.results_dir + cm_name + ".png"
+            img_path = self.results_dir + self.model_name + "/" + cm_name + ".png"
         else:
             img_path = None
         self.__dict__[cm_name] = Trainer.compute_multiclass_confusion_matrix(y_true, y_pred, class_labels, img_path)
@@ -318,6 +329,7 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
     torch.backends.cuda.deterministic = True
     keras.utils.set_random_seed(seed)
+
     silence_tensorflow()
 
     # Define variables
@@ -333,28 +345,33 @@ if __name__ == "__main__":
                                  data_names=train_data1.remaining_instances)
 
     # Define the model
-    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid_15classes"
-    model_name1 = "test"
-    net_type1 = NetType.CONV2D_NO_HYBRID
-    binary_output1 = False
-    normalize_input1 = True
+    folder_name1 = "test"
+    model_name1 = "conv1d"
+    net_type1 = NetType.CONV1D
+    binary_output1 = True
+    normalize_input1 = False
     lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
     # lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN
     # lr1 = 0.0001  # Multiclass Conv1D
     use_cuda1 = False
+    show_cm1 = True
+    assess_calibration1 = True
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=300, lr=lr1,
+                              train_data=train_data1, test_data=test_data1, epochs=100, lr=lr1,
                               binary_output=binary_output1, normalize_input=normalize_input1, use_cuda=use_cuda1)
 
     # Train the model
     trainer1.summarize_performance()
     trainer1.train(model_name1, show_epochs=True)
-    trainer1.summarize_performance(show_process=True)
+    trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1)
 
     # Load trained model
     use_keras1 = True
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
                                   use_keras=use_keras1)
 
-    show_cm1 = True
-    trainer1.summarize_performance(show_process=True, show_cm=show_cm1)
+    avoid_eval1 = False
+    trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1,
+                                   avoid_eval=avoid_eval1)
+
+

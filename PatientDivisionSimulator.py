@@ -56,15 +56,15 @@ if __name__ == "__main__":
     desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
 
     data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.CONV1D_NO_HYBRID
+    model_type1 = NetType.CONV2D_NO_HYBRID
     # model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
-    n_rep1 = 2
-    train_epochs1 = 2
-    # train_lr1 = 0.01 # Binary or Multiclass Conv2DNoHybrid
-    # train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid
-    train_lr1 = 0.0001  # Multiclass Conv1D
-    folder_name1 = "patientVSrandom_division_conv1d_no_hybrid_15classes"
+    n_rep1 = 100
+    train_epochs1 = 300
+    train_lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
+    # train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN
+    # train_lr1 = 0.0001  # Multiclass Conv1D
+    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid_15classes"
     simulator_name1 = "patient_division"
     use_cuda1 = False
 
@@ -87,7 +87,8 @@ if __name__ == "__main__":
     # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)
 
     # Run simulation
-    simulator1.run_simulation(seed1)
+    keep_previous_results1 = False
+    simulator1.run_simulation(seed1, keep_previous_results=keep_previous_results1)
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
     # avoid_eval1 = True
