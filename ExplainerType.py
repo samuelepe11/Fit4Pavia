@@ -7,3 +7,4 @@ class ExplainerType(Enum):
     GC = "GradCAM"
     HRC = "HiResCAM"
     VC = "VanillaCAM"
+    LIME = "LIME"

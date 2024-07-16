@@ -1,6 +1,7 @@
 # Import packages
 import torch
 import torch.nn as nn
+from lime import lime_image
 
 from JAISystem import JAISystem
 from SkeletonDataset import SkeletonDataset
@@ -42,34 +43,37 @@ class JAISystemWithCAM(JAISystem):
             is_2d = None
             print("The CAM method cannot be applied for the selected layer!")
 
-        if trainer.normalize_input:
-            x = (x - trainer.attr_mean) / trainer.attr_std
-
-        x = torch.from_numpy(x)
-        x = x.unsqueeze(0)
-
         # Extract activations and gradients
         if avoid_eval:
             net.eval()
         else:
             net.set_training(False)
         net.zero_grad()
+
+        if trainer.normalize_input:
+            x = (x - trainer.attr_mean) / trainer.attr_std
+
+        is_lime = explainer_type == ExplainerType.LIME
+        if is_lime:
+            cam = JAISystemWithCAM.lime_map(x, target_class, trainer, avoid_eval)
+
+        x = torch.from_numpy(x)
+        x = x.unsqueeze(0)
         output, target_activation = net(x, layer_interrupt=target_layer, avoid_eval=avoid_eval)
         target_score = output[:, target_class]
-        target_score.backward()
-        target_grad = net.gradients
+        if not is_lime:
+            target_score.backward()
+            target_grad = net.gradients
 
-        # Compute CAM
-        target_activation = target_activation.squeeze(0)
-        target_grad = target_grad.squeeze(0)
-        if explainer_type == ExplainerType.GC:
-            cam = JAISystemWithCAM.gc_map(target_activation, target_grad, is_2d)
-        elif explainer_type == ExplainerType.HRC:
-            cam = JAISystemWithCAM.hrc_map(target_activation, target_grad)
-        else:
-            print("CAM generation method not implemented!")
-            cam = None
-        cam = cam.cpu().detach().numpy()
+            # Compute CAM
+            target_activation = target_activation.squeeze(0)
+            target_grad = target_grad.squeeze(0)
+            if explainer_type == ExplainerType.GC:
+                cam = JAISystemWithCAM.gc_map(target_activation, target_grad, is_2d)
+            elif explainer_type == ExplainerType.HRC:
+                cam = JAISystemWithCAM.hrc_map(target_activation, target_grad)
+            cam = cam.cpu().detach().numpy()
+
         cam = cam.transpose()
         cam, bar_range = JAISystem.adjust_map(cam, x, is_2d)
 
@@ -103,6 +107,28 @@ class JAISystemWithCAM(JAISystem):
         cam = torch.relu(cam)
         return cam
 
+    @staticmethod
+    def lime_map(x, target_class, trainer, avoid_eval=False):
+        explainer = lime_image.LimeImageExplainer()
+        explanation = explainer.explain_instance(x, lambda img: JAISystemWithCAM.lime_pred_fc(img, trainer, avoid_eval),
+                                                 labels=[target_class], top_labels=None)
+        _, cam = explanation.get_image_and_mask(label=target_class, positive_only=True, hide_rest=True)
+        return cam
+
+    @staticmethod
+    def lime_pred_fc(x, trainer, avoid_eval=False):
+        net = trainer.net
+        x = torch.from_numpy(x)
+
+        if avoid_eval:
+            net.eval()
+        else:
+            net.set_training(False)
+
+        with torch.no_grad():
+            prediction = net(x, avoid_eval=avoid_eval, is_lime=True)
+        return prediction.squeeze().numpy()
+
 
 # Main
 if __name__ == "__main__":
@@ -120,7 +146,7 @@ if __name__ == "__main__":
     target_layer1 = "conv2"
     target_classes = range(2)
     target_classes = range(15)
-    explainer_types = [ExplainerType.GC, ExplainerType.HRC]
+    explainer_types = [ExplainerType.LIME]
     show1 = False
     switch_map_format1 = False
     static_joints1 = False

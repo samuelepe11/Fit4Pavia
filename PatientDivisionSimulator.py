@@ -56,15 +56,15 @@ if __name__ == "__main__":
     desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
 
     data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.CONV2D_NO_HYBRID
+    model_type1 = NetType.LSTM
     # model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
     n_rep1 = 100
     train_epochs1 = 300
-    train_lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
-    # train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN
+    # train_lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
+    train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # train_lr1 = 0.0001  # Multiclass Conv1D
-    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid_15classes"
+    folder_name1 = "patientVSrandom_division_bilstm_15classes"
     simulator_name1 = "patient_division"
     use_cuda1 = False
 

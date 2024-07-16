@@ -14,8 +14,8 @@ class LSTMNetwork(RNNetwork):
         if num_classes == 2:
             self.hidden_dim = 32
         else:
-            # TODO
-            self.hidden_dim = 32
+            self.num_layers = 1
+            self.hidden_dim = 128
 
         self.fc_input = self.hidden_dim
         if self.bidirectional:

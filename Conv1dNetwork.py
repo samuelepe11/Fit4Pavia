@@ -1,4 +1,5 @@
 # Import packages
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -60,12 +61,16 @@ class Conv1dNetwork(nn.Module):
     def activations_hook(self, grad):
         self.gradients = grad
 
-    def forward(self, x, layer_interrupt=None, avoid_eval=False):
+    def forward(self, x, layer_interrupt=None, avoid_eval=False, is_lime=False):
         # Apply network
-        out = x.permute(0, 2, 1)
+        if not is_lime:
+            out = x.permute(0, 2, 1)
 
-        if self.is_2d:
-            out = out.unsqueeze(0)
+            if self.is_2d:
+                out = out.unsqueeze(0)
+        else:
+            out = x.permute(0, 3, 2, 1)
+            out = torch.mean(out, dim=1, keepdim=True)
 
         # Handle previous versions of the Conv1dNetwork class (no num_conv_layers attribute)
         if "num_conv_layers" not in self.__dict__.keys():

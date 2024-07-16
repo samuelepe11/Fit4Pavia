@@ -346,12 +346,12 @@ if __name__ == "__main__":
 
     # Define the model
     folder_name1 = "test"
-    model_name1 = "conv1d"
-    net_type1 = NetType.CONV1D
+    model_name1 = "lstm"
+    net_type1 = NetType.BLSTM
     binary_output1 = True
-    normalize_input1 = False
-    lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
-    # lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN
+    normalize_input1 = True
+    # lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
+    lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # lr1 = 0.0001  # Multiclass Conv1D
     use_cuda1 = False
     show_cm1 = True
@@ -366,7 +366,7 @@ if __name__ == "__main__":
     trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1)
 
     # Load trained model
-    use_keras1 = True
+    use_keras1 = False
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
                                   use_keras=use_keras1)
 

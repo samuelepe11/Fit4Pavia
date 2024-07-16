@@ -31,7 +31,7 @@ class RNNetwork(nn.Module):
         else:
             self.sigmoid = nn.Softmax(dim=1)
 
-    def forward(self, x):
+    def forward(self, x, avoid_eval=False):
         try:
             out, _ = self.rnn(x)
         except AttributeError:
