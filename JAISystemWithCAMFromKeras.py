@@ -2,12 +2,19 @@
 import numpy as np
 import keras
 import tensorflow as tf
+import shap
+import time
+import lime_timeseries.lime_timeseries as lime_timeseries
+import WindowSHAP.windowshap as windowshap
+from lime import lime_image
 
 from JAISystem import JAISystem
 from JAISystemWithCAM import JAISystemWithCAM
 from SkeletonDataset import SkeletonDataset
 from ExplainerType import ExplainerType
 from NetworkTrainer import NetworkTrainer
+from Conv1dNoHybridNetwork import Conv1dNoHybridNetwork
+from SetType import SetType
 
 
 # Class
@@ -18,16 +25,20 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
         self.use_keras = True
 
     def get_cam(self, item_name, target_layer, target_class, explainer_type, show=False, switch_map_format=False,
-                static_joints=False):
-        x, y = self.get_item_from_name(item_name)
+                static_joints=False, show_graphs=False, x=None, y=None):
+        if item_name is not None:
+            x, y = self.get_item_from_name(item_name)
         cam, output_prob, bar_range = JAISystemWithCAMFromKeras.draw_cam(self.trainer, x, target_layer,
                                                                          target_class, explainer_type)
         x, dim = SkeletonDataset.remove_padding(x)
         x = x[0]
         dim = dim[0]
         cam = cam[:dim, :]
-        self.display_output(item_name, target_layer, target_class, x, y, explainer_type, cam, output_prob,
-                            switch_map_format, static_joints, show, bar_range)
+        if item_name is not None:
+            self.display_output(item_name, target_layer, target_class, x, y, explainer_type, cam, output_prob,
+                                switch_map_format, static_joints, show, bar_range, show_graphs)
+        else:
+            return cam
 
     def get_item_from_name(self, item_name):
         item_name += SkeletonDataset.extension
@@ -46,8 +57,6 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
     @staticmethod
     def draw_cam(trainer, x, target_layer, target_class, explainer_type, avoid_eval=False):
         net = trainer.net
-        net.model.layers[-1].activation = None
-
         desired_layer = net.model.get_layer(target_layer)
         if isinstance(desired_layer, keras.layers.Conv2D):
             is_2d = True
@@ -59,6 +68,16 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
 
         if trainer.normalize_input:
             x = (x - trainer.attr_mean) / trainer.attr_std
+
+        is_lime = explainer_type == ExplainerType.LIME
+        is_shap = explainer_type == ExplainerType.SHAP
+        is_ref = is_lime or is_shap
+        if is_lime:
+            cam = JAISystemWithCAMFromKeras.lime_map(x, target_class, trainer, avoid_eval, is_2d)
+        if is_shap:
+            cam = JAISystemWithCAMFromKeras.shap_map(x, target_class, trainer, avoid_eval, is_2d)
+
+        net.model.layers[-1].activation = None
         x = tf.convert_to_tensor(x)
 
         # Extract activations and gradients
@@ -67,7 +86,7 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
             target_activation, output = grad_model(x)
             target_score = output[:, target_class]
 
-        if explainer_type != ExplainerType.VC:
+        if explainer_type != ExplainerType.VC and not is_ref:
             target_grad = tape.gradient(target_score, target_activation)
             target_grad = tf.squeeze(target_grad, axis=0)
         else:
@@ -93,11 +112,10 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
             if len(fc_weights) != target_activation.shape[-1]:
                 print("It is necessary to select the last convolutional layer!")
             cam = JAISystemWithCAMFromKeras.vc_map(target_activation, fc_weights, is_2d)
-        else:
-            print("Method not defined")
-            cam = None
-        cam = cam.numpy()
-        cam, bar_range = JAISystem.adjust_map(cam, x, is_2d)
+
+        if not is_ref:
+            cam = cam.numpy()
+        cam, bar_range = JAISystem.adjust_map(cam, x, is_2d, is_lime)
 
         output_prob = keras.activations.softmax(output)
         output_prob = output_prob[:, target_class]
@@ -169,28 +187,104 @@ class JAISystemWithCAMFromKeras(JAISystemWithCAM):
         cam = tf.nn.relu(cam)
         return cam
 
+    @staticmethod
+    def lime_map(x, target_class, trainer, avoid_eval=False, is_2d=True):
+        _, dim = SkeletonDataset.remove_padding(x)
+        x = x.squeeze(0)
+        if is_2d:
+            explainer = lime_image.LimeImageExplainer(kernel_width=0.25)
+            explanation = explainer.explain_instance(x, lambda img: JAISystemWithCAMFromKeras.pred_fc(img, trainer, pad_dim=dim),
+                                                     labels=[target_class], top_labels=None, batch_size=32, num_features=10,
+                                                     num_samples=500)
+            x_shape = None
+        else:
+            explainer = lime_timeseries.LimeTimeSeriesExplainer(kernel_width=0.25)
+            explanation = explainer.explain_instance(x, lambda img: JAISystemWithCAMFromKeras.pred_fc(img, trainer, pad_dim=dim, is_2d=is_2d),
+                                                     labels=[target_class], top_labels=None, num_features=10,
+                                                     num_samples=500, num_slices=3, replacement_method="noise")
+            x_shape = x.shape
+
+        cam = JAISystem.adjust_lime_map(explanation, target_class, x_shape=x_shape)
+        return cam
+
+    @staticmethod
+    def shap_map(x, target_class, trainer, avoid_eval=False, is_2d=True):
+        _, dim = SkeletonDataset.remove_padding(x)
+        if is_2d:
+            masker = shap.maskers.Image("inpaint_telea", list(x.shape[1:]) + [1])
+            explainer = shap.Explainer(lambda img: JAISystemWithCAMFromKeras.pred_fc(img, trainer, avoid_eval, False, pad_dim=dim),
+                                       masker=masker, output_names=(list(range(trainer.num_classes))))
+            shap_values = explainer(x, max_evals=5000, batch_size=32, outputs=[target_class])
+            cam = shap_values.values[0, :, :, 0]
+        else:
+            background = []
+            for _ in range(1):
+                perturbation = np.random.normal(0, 3, x.shape)
+                perturbed_sample = x + perturbation
+                background.append(perturbed_sample[0])
+            background = np.array(background)
+            explainer = windowshap.StationaryWindowSHAP(lambda img: JAISystemWithCAMFromKeras.pred_fc(img, trainer, avoid_eval, False, pad_dim=dim),
+                                                        window_len=10, B_ts=background, test_ts=x, model_type="lstm")
+            shap_values = explainer.shap_values(len(trainer.classes))
+            cam = shap_values[target_class, 0, :, :]
+            cam = np.sum(cam, axis=1, keepdims=True)
+
+        cam = np.maximum(cam, 0)
+        return cam
+
+    @staticmethod
+    def pred_fc(x, trainer, avoid_eval=False, is_lime=True, pad_dim=None, is_2d=True):
+        net = trainer.net
+        if is_lime and is_2d:
+            x = np.mean(x, axis=-1, keepdims=True)
+        if pad_dim is not None:
+            if is_lime and is_2d:
+                x[:, pad_dim[0]:, :, :] = Conv1dNoHybridNetwork.mask_value
+            else:
+                x[:, pad_dim[0]:, :] = Conv1dNoHybridNetwork.mask_value
+        x = tf.convert_to_tensor(x)
+
+        prediction = net.predict(x)
+        return prediction
+
 
 # Main
 if __name__ == "__main__":
+    # Define seeds
+    seed = 111099
+    keras.utils.set_random_seed(seed)
+
     # Define variables
     working_dir1 = "./../"
-    model_name1 = "conv1d_no_hybrid"
+    model_name1 = "conv2d_no_hybrid_15classes"
     system_name1 = "DD_" + model_name1
     system1 = JAISystemWithCAMFromKeras(working_dir=working_dir1, model_name=model_name1, system_name=system_name1)
 
     # Explain one item
-    item_names = ["S002C002P012R002A008", "S013C002P018R002A008"]#, "S013C002P025R002A042", "S027C002P081R002A070",
-                  #"S030C002P044R002A099"]
-    target_layer1 = "conv1d_1"
+    item_names = ["S011C002P038R002A009", "S010C002P021R002A008"]
+    item_names = ["S029C002P049R002A069", "S031C002P099R002A080"]
+    target_layer1 = "conv2d_1"
     target_classes = range(2)
-    #target_classes = range(15)
-    explainer_types = [ExplainerType.GC, ExplainerType.HRC, ExplainerType.VC]
+    target_classes = range(15)
+    explainer_types = [ExplainerType.SHAP]
     show1 = False
     switch_map_format1 = False
     static_joints1 = False
-    for item_name1 in item_names:
-        for target_class1 in target_classes:
-            for explainer_type1 in explainer_types:
+    show_graphs1 = True
+    print()
+    '''for item_name1 in item_names:
+        for explainer_type1 in explainer_types:
+            print("Creating", explainer_type1.value, "maps for", item_name1 + "...")
+            start = time.time()
+            for target_class1 in target_classes:
                 system1.get_cam(item_name=item_name1, target_layer=target_layer1, target_class=target_class1,
                                 explainer_type=explainer_type1, show=show1, switch_map_format=switch_map_format1,
-                                static_joints=static_joints1)
+                                static_joints=static_joints1, show_graphs=show_graphs1)
+            end = time.time()
+            print(" > duration:", round((end - start) / 60, 4), "min")
+            print()'''
+
+    # Average explanations
+    set_type1 = SetType.TEST
+    explainer_type1 = ExplainerType.GC
+    system1.average_explanations(set_type=set_type1, explainer_type=explainer_type1, target_layer=target_layer1)

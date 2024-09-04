@@ -66,6 +66,8 @@ class SkeletonDataset(Dataset):
                    "right hand", "left shoulder", "left elbow", "left wrist", "left hand", "right hip", "right knee",
                    "right ankle", "right foot", "left hip", "left knee", "left ankle", "left foot", "sternum top",
                    "right fingers", "right thumb", "left fingers", "left thumb"]
+    joint_set = {"body": list(range(4)) + [20], "right arm": list(range(4, 8)), "left arm": list(range(8, 12)),
+                 "right leg": list(range(12, 16)), "left leg": list(range(16, 20)), "hands": list(range(21, 25))}
 
     def __init__(self, working_dir, desired_classes, group_dict=None, data_perc=None, divide_pt=False, data_names=None,
                  dataset_name=None, subfolder=None):

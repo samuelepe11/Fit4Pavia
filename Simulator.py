@@ -96,7 +96,8 @@ class Simulator:
             else:
                 trainer = SimpleClassifierTrainer(ml_algorithm=self.model_type, working_dir=self.working_dir,
                                                   folder_name=self.folder_name, train_data=train_data,
-                                                  test_data=test_data, normalize_data=self.normalize_data)
+                                                  test_data=test_data, normalize_data=self.normalize_data,
+                                                  desired_classes=self.desired_classes)
             trainer.train(model_name)
 
             # Store results
@@ -292,29 +293,29 @@ if __name__ == "__main__":
 
     data_group_dict1 = {"C": 2, "R": 2}
     model_type1 = NetType.LSTM
-    # model_type1 = MLAlgorithmType.AB
+    model_type1 = MLAlgorithmType.MLP
     train_perc1 = 0.7
     n_rep1 = 100
     train_epochs1 = 300
     # train_lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
     train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # train_lr1 = 0.0001  # Multiclass Conv1D
-    folder_name1 = "patientVSrandom_division_lstm_15classes"
+    folder_name1 = "patientVSrandom_division_mlp_15classes"
     simulator_name1 = "random_division"
-    use_cuda1 = False
+    use_cuda1 = True
 
-    feature_file1 = "hand_crafted_features_global_10classes.csv"
+    feature_file1 = "hand_crafted_features_global_15classes.csv"
     normalize_data1 = True
 
     # Initialize the simulator
-    simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
+    '''simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
                            working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
                            model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
-                           train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1)
-    # simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
-    #                        working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
-    #                        model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1,
-    #                        normalize_data=normalize_data1)
+                           train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1)'''
+    simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
+                           working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
+                           model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1,
+                           normalize_data=normalize_data1)
 
     # Load simulator
     # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)

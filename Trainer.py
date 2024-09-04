@@ -214,14 +214,16 @@ class Trainer:
         if "model_name" not in network_trainer.__dict__.keys():
             # Handle previous versions of the Trainer classes (no model_name attribute)
             network_trainer.model_name = model_name
+        try:
+            if "is_2d" not in network_trainer.net.__dict__.keys():
+                # Handle previous versions of the Conv1dNetwork class (no is_2d attribute)
+                network_trainer.net.is_2d = False
 
-        if "is_2d" not in network_trainer.net.__dict__.keys():
-            # Handle previous versions of the Conv1dNetwork class (no is_2d attribute)
-            network_trainer.net.is_2d = False
-
-        if "num_classes" not in network_trainer.net.__dict__.keys():
-            # Handle previous versions of the Conv1dNetwork class (no num_classes attribute)
-            network_trainer.net.num_classes = 2
+            if "num_classes" not in network_trainer.net.__dict__.keys():
+                # Handle previous versions of the Conv1dNetwork class (no num_classes attribute)
+                network_trainer.net.num_classes = 2
+        except:
+            print()
 
         if "multiclass" not in network_trainer.__dict__.keys():
             # Handle previous versions of the NetworkTrainer class (no multiclass attribute)
@@ -233,6 +235,12 @@ class Trainer:
 
         if "classes" not in network_trainer.__dict__.keys():
             # Handle previous versions of the NetworkTrainer class (no classes attribute)
+            network_trainer.classes = [8, 9]
+
+        if "15" in network_trainer.model_name and len(network_trainer.classes) != 15:
+            network_trainer.classes = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
+
+        if "15" not in network_trainer.model_name and len(network_trainer.classes) != 2:
             network_trainer.classes = [8, 9]
 
         return network_trainer

@@ -58,16 +58,16 @@ class Conv1dNetwork(nn.Module):
         # CAM attributes
         self.gradients = None
 
-    def activations_hook(self, grad):
+    def activation_hook(self, grad):
         self.gradients = grad
 
     def forward(self, x, layer_interrupt=None, avoid_eval=False, is_lime=False):
         # Apply network
-        if not is_lime:
+        if not is_lime or not self.is_2d:
             out = x.permute(0, 2, 1)
 
             if self.is_2d:
-                out = out.unsqueeze(0)
+                out = out.unsqueeze(1)
         else:
             out = x.permute(0, 3, 2, 1)
             out = torch.mean(out, dim=1, keepdim=True)
@@ -76,7 +76,7 @@ class Conv1dNetwork(nn.Module):
         if "num_conv_layers" not in self.__dict__.keys():
             self.num_conv_layers = len([x for x in self.__dict__.keys() if x.startswith("conv")])
 
-        if avoid_eval:
+        if avoid_eval or self.avoid_eval:
             torch.manual_seed(1)
 
         target_activation = None
@@ -87,7 +87,7 @@ class Conv1dNetwork(nn.Module):
             out = self.__dict__[conv_layer](out)
             if layer_interrupt == "conv" + str(i):
                 target_activation = out
-                h = out.register_hook(self.activations_hook)
+                h = out.register_hook(self.activation_hook)
 
             if self.num_classes == 2:
                 out = self.__dict__["pool" + str(i)](out)
@@ -108,3 +108,6 @@ class Conv1dNetwork(nn.Module):
 
         out = self.sigmoid(out)
         return out
+
+    def set_avoid_eval(self, avoid_eval):
+        self.__dict__["avoid_eval"] = avoid_eval

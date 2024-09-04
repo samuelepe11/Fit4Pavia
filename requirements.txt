@@ -99,3 +99,8 @@ Werkzeug==3.0.1
 win-inet-pton @ file:///C:/ci_311/win_inet_pton_1676425458225/work
 wrapt==1.14.1
 zipp @ file:///C:/b/abs_b0beoc27oa/croot/zipp_1704206963359/work
+
+numpy~=1.26.4
+ipdb~=0.13.13
+shap~=0.46.0
+lime~=0.2.0.1

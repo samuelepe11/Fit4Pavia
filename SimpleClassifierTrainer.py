@@ -20,31 +20,31 @@ from SkeletonDataset import SkeletonDataset
 # Class
 class SimpleClassifierTrainer(Trainer):
 
-    def __init__(self, ml_algorithm, working_dir, folder_name, train_data, test_data, normalize_data=False):
+    def __init__(self, ml_algorithm, working_dir, folder_name, train_data, test_data, normalize_data=False,
+                 desired_classes=None):
         super().__init__(working_dir, folder_name, train_data, test_data)
 
         # Initialize attributes
         self.ml_algorithm = ml_algorithm
+        self.desired_classes = desired_classes
         if ml_algorithm == MLAlgorithmType.SVM:
             # params = [0.5, "rbf"]  # Regularization parameter and kernel type (apply default settings for each kernel)
-            params = [0.75, "rbf"]
+            params = [0.75, "rbf"]  # Multiclass case
             self.model = SVC(C=params[0], kernel=params[1])
         elif ml_algorithm == MLAlgorithmType.RF:
-            # params = [100, "gini"]  # Number of trees and impurity measure
-            params = [50, "gini"]
+            params = [100, "gini"]  # Number of trees and impurity measure
             self.model = RandomForestClassifier(n_estimators=params[0], criterion=params[1])
         elif ml_algorithm == MLAlgorithmType.AB:
-            # params = [DecisionTreeClassifier(max_depth=1), 100, 1]  #Base classifier, number of estimators and LR
-            params = [DecisionTreeClassifier(max_depth=3), 300, 1]
+            # params = [DecisionTreeClassifier(max_depth=1), 100, 1]  # Base classifier, number of estimators and LR
+            params = [DecisionTreeClassifier(max_depth=3), 200, 1]
             self.model = AdaBoostClassifier(estimator=params[0], n_estimators=params[1], learning_rate=params[2],
                                             algorithm="SAMME")
         elif ml_algorithm == MLAlgorithmType.MLP:
             # params = [(64,), 0.01]  # Hidden layer sizes and initial LR
-            params = [(64,), 0.01]
+            params = [(128,), 0.001]
             self.model = MLPClassifier(hidden_layer_sizes=params[0], learning_rate_init=params[1])
         elif ml_algorithm == MLAlgorithmType.KNN:
-            # params = [5]  # Number of neighbors
-            params = [7]
+            params = [5]  # Number of neighbors
             self.model = KNeighborsClassifier(n_neighbors=params[0])
         else:
             # Dynamic Time Warping KNN
@@ -86,7 +86,7 @@ class SimpleClassifierTrainer(Trainer):
         self.train_losses.append(loss)
         SimpleClassifierTrainer.save_model(self, filename, use_keras=False)
 
-    def test(self, set_type=SetType.TRAINING):
+    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False):
         if set_type == SetType.TRAINING:
             data = self.train_data
         else:
@@ -108,14 +108,27 @@ class SimpleClassifierTrainer(Trainer):
         acc = self.model.score(x, y)
         loss = 1 - acc
 
+        # Store values for Confusion Matrix calculation
+        y_true = y
+        y_pred = prediction
+
         # Confusion matrix definition
-        cm = SimpleClassifierTrainer.compute_confusion_matrix(prediction, y, classes=np.unique(y))
+        cm = Trainer.compute_binary_confusion_matrix(prediction, y, classes=range(len(self.desired_classes)))
         tp = np.float64(cm[0])
         tn = np.float64(cm[1])
         fp = np.float64(cm[2])
         fn = np.float64(cm[3])
-
         stats_holder = StatsHolder(loss, acc, tp, tn, fp, fn)
+
+        # Compute multiclass confusion matrix
+        cm_name = set_type.value + "_cm"
+        if show_cm:
+            img_path = self.results_dir + self.model_name + "/" + cm_name + ".png"
+        else:
+            img_path = None
+        self.__dict__[cm_name] = Trainer.compute_multiclass_confusion_matrix(y_true, y_pred, self.desired_classes,
+                                                                             img_path)
+
         return stats_holder
 
     def show_model(self):
@@ -128,16 +141,17 @@ if __name__ == "__main__":
     # Define seeds
     seed = 111099
     random.seed(seed)
+    np.random.seed(seed)
 
     # Define variables
     working_dir1 = "./../"
     # desired_classes1 = [8, 9]
-    desired_classes1 = list(range(1, 11))
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
     group_dict1 = {"C": 2, "R": 2}
 
     # Read the data
     # data_file = "hand_crafted_features_global.csv"
-    data_file = "hand_crafted_features_global_10classes.csv"
+    data_file = "hand_crafted_features_global_15classes.csv"
     data_matrix, dim = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=data_file,
                                                           group_dict=group_dict1)
 
@@ -151,8 +165,8 @@ if __name__ == "__main__":
 
     # Define the model
     folder_name1 = "tests"
-    model_name1 = "test_10classes"
-    ml_algorithm1 = MLAlgorithmType.AB
+    model_name1 = "prova"
+    ml_algorithm1 = MLAlgorithmType.MLP
 
     # Define the data for DTW KNN
     if ml_algorithm1 == MLAlgorithmType.KNN_DTW:
@@ -163,7 +177,8 @@ if __name__ == "__main__":
 
     normalize_data1 = True
     trainer1 = SimpleClassifierTrainer(ml_algorithm=ml_algorithm1, working_dir=working_dir1, folder_name=folder_name1,
-                                       train_data=train_data1, test_data=test_data1, normalize_data=normalize_data1)
+                                       train_data=train_data1, test_data=test_data1, normalize_data=normalize_data1,
+                                       desired_classes=desired_classes1)
 
     # Train the model
     trainer1.train(model_name1)

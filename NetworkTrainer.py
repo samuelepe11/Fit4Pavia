@@ -345,8 +345,8 @@ if __name__ == "__main__":
                                  data_names=train_data1.remaining_instances)
 
     # Define the model
-    folder_name1 = "test"
-    model_name1 = "lstm"
+    folder_name1 = "models_for_JAI"
+    model_name1 = "conv2d"
     net_type1 = NetType.BLSTM
     binary_output1 = True
     normalize_input1 = True

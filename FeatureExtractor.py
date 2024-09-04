@@ -165,7 +165,7 @@ class FeatureExtractor:
 
         return features
 
-    def preprocess_feature_dataset(self, normalize=False, select_features=False):
+    def remove_nan(self):
         # Remove rows with NaN elements
         items = np.array_split(self.raw_data, self.raw_data.shape[0], axis=0)
         ind = [i for i in range(self.raw_data.shape[0]) if not np.any(np.isnan(items[i]))]
@@ -178,8 +178,7 @@ class FeatureExtractor:
         # Store results
         self.preprocessed_data = data
         self.preprocessed_descr = descr
-        filename = self.feature_file[:-4] + "_preprocessed.csv"
-        self.store_dataset(data, descr, filename)
+        self.store_dataset(data, descr, self.feature_file)
         print("Preprocessed dataset stored!")
 
     def store_dataset(self, data, descr, filename):
@@ -264,9 +263,8 @@ if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
     # desired_classes1 = [8, 9]
-    desired_classes1 = list(range(1, 11))
-    # feature_file1 = "hand_crafted_features_global.csv"
-    feature_file1 = "hand_crafted_features_global_10classes.csv"
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
+    feature_file1 = "hand_crafted_features_global_15classes.csv"
     n_windows1 = 1
     include_l21 = False
     # selected_features1 = ["mean", "std", "mean_velocity"]
@@ -283,7 +281,7 @@ if __name__ == "__main__":
     feature_extractor1.build_feature_dataset()
 
     # Preprocess dataset
-    feature_extractor1.preprocess_feature_dataset()
+    feature_extractor1.remove_nan()
 
     # Load data
     # data1, dim1 = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=feature_file1,
