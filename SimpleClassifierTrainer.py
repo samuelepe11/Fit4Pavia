@@ -82,8 +82,10 @@ class SimpleClassifierTrainer(Trainer):
         y = y.astype(int)
         self.model.fit(x, y)
 
-        loss = 1 - self.model.score(x, y)
+        acc = self.model.score(x, y)
+        loss = 1 - acc
         self.train_losses.append(loss)
+        self.train_accs.append(acc)
         SimpleClassifierTrainer.save_model(self, filename, use_keras=False)
 
     def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False):

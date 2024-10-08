@@ -7,7 +7,7 @@ import torch.nn as nn
 # Class
 class Conv1dNetwork(nn.Module):
 
-    def __init__(self, num_classes=2, is_2d=False, binary_output=False):
+    def __init__(self, num_classes=2, is_2d=False, binary_output=False, is_rehab=False):
         super(Conv1dNetwork, self).__init__()
         self.is_2d = is_2d
 
@@ -15,19 +15,40 @@ class Conv1dNetwork(nn.Module):
         self.in_channels = 75
         self.num_classes = num_classes
         if self.num_classes == 2:
-            self.layer_dims = [self.in_channels, 16, 32, 64]
-            self.hidden_dim = 128
-            self.num_rnn_layers = 1
+            if not is_rehab:
+                self.layer_dims = [self.in_channels, 16, 32, 64]
+                self.hidden_dim = 128
+                self.num_rnn_layers = 1
+                self.use_pools = True
+                self.use_batch_norms = True
+                self.use_dropouts = False
+                self.lr = 0.01
+            else:
+                self.layer_dims = [self.in_channels, 32, 64, 128] #128, 128, 128]
+                self.hidden_dim = 128
+                self.num_rnn_layers = 1
+                self.use_pools = False
+                self.use_batch_norms = False
+                self.use_dropouts = False
+                self.lr = 0.001
             if not binary_output:
                 self.output_neurons = 1
             else:
                 self.output_neurons = 2
         else:
-            self.layer_dims = [self.in_channels, 64, 64, 64, 64, 64]
-            self.hidden_dim = 128
-            self.num_rnn_layers = 1
+            if not is_rehab:
+                self.layer_dims = [self.in_channels, 64, 64, 64, 64, 64]
+                self.hidden_dim = 128
+                self.num_rnn_layers = 1
+                self.use_pools = False
+                self.use_batch_norms = True
+                self.use_dropouts = True
+                self.lr = 0.0001
+            else:
+                print("TODO")
             self.output_neurons = num_classes
         self.num_conv_layers = len(self.layer_dims) - 1
+        self.avoid_eval = False
 
         # Layers
         for i in range(self.num_conv_layers):
@@ -40,7 +61,7 @@ class Conv1dNetwork(nn.Module):
             self.__dict__["batch_norm" + str(i)] = nn.BatchNorm1d(self.layer_dims[i + 1])
             self.__dict__["dropout" + str(i)] = nn.Dropout1d(p=0.1)
 
-        if self.num_classes == 2:
+        if self.num_classes == 2 and not is_rehab:
             self.rnn = nn.RNN(input_size=self.layer_dims[-1], hidden_size=self.hidden_dim,
                               num_layers=self.num_rnn_layers, batch_first=True)
         else:
@@ -89,12 +110,22 @@ class Conv1dNetwork(nn.Module):
                 target_activation = out
                 h = out.register_hook(self.activation_hook)
 
-            if self.num_classes == 2:
-                out = self.__dict__["pool" + str(i)](out)
-            out = self.__dict__["relu" + str(i)](out)
-            out = self.__dict__["batch_norm" + str(i)](out)
-            if self.num_classes > 2:
-                out = self.__dict__["dropout" + str(i)](out)
+            try:
+                if self.use_pools:
+                    out = self.__dict__["pool" + str(i)](out)
+                out = self.__dict__["relu" + str(i)](out)
+                if self.use_batch_norms:
+                    out = self.__dict__["batch_norm" + str(i)](out)
+                if self.use_dropouts:
+                    out = self.__dict__["dropout" + str(i)](out)
+            except:
+                # use_pools, use_batch_norms and use_dropouts did not exist in previous versions of the code
+                if self.num_classes == 2:
+                    out = self.__dict__["pool" + str(i)](out)
+                out = self.__dict__["relu" + str(i)](out)
+                out = self.__dict__["batch_norm" + str(i)](out)
+                if self.num_classes > 2:
+                    out = self.__dict__["dropout" + str(i)](out)
 
         if self.is_2d:
             out = torch.mean(out, dim=2)

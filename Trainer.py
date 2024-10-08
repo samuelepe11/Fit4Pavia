@@ -15,6 +15,7 @@ from StatsHolder import StatsHolder
 from NetType import NetType
 from TCNNetwork import TCNNetwork
 from SkeletonDataset import SkeletonDataset
+from RehabSkeletonDataset import RehabSkeletonDataset
 
 
 # Class
@@ -24,6 +25,10 @@ class Trainer:
     def __init__(self, working_dir, folder_name, train_data, test_data):
         # Initialize attributes
         self.train_losses = []
+        self.train_accs = []
+
+        if isinstance(train_data, RehabSkeletonDataset):
+            self.results_fold = "../IntelliRehabDS/" + self.results_fold
 
         # Define data parameters
         self.working_dir = working_dir
@@ -42,7 +47,7 @@ class Trainer:
         return train_stats
 
     def summarize_performance(self, show_process=False, show_cm=False, assess_calibration=False, avoid_eval=False):
-        if show_cm or assess_calibration:
+        if show_cm or assess_calibration or show_process:
             if self.model_name not in os.listdir(self.results_dir):
                 os.mkdir(self.results_dir + self.model_name)
 
@@ -65,11 +70,7 @@ class Trainer:
 
         # Show training curves
         if show_process:
-            plt.plot(self.train_losses, "b", label="Training set")
-            plt.legend()
-            plt.title("Training curves")
-            plt.ylabel("Loss")
-            plt.xlabel("Epoch")
+            self.draw_training_curves()
             plt.savefig(self.results_dir + self.model_name + "/training_curves.png", dpi=300, bbox_inches="tight")
             plt.close()
 
@@ -132,8 +133,8 @@ class Trainer:
     @staticmethod
     def compute_multiclass_confusion_matrix(y_true, y_pred, classes, img_path=None):
         # Compute confusion matrix
-        y_true = torch.tensor(y_true)
-        y_pred = torch.tensor(y_pred)
+        y_true = torch.tensor(y_true, dtype=torch.int64)
+        y_pred = torch.tensor(y_pred, dtype=torch.int64)
         cm = multiclass_confusion_matrix(y_pred, y_true.to(torch.int64), len(classes))
 
         # Draw heatmap
@@ -143,9 +144,13 @@ class Trainer:
         return cm
 
     @staticmethod
-    def draw_multiclass_confusion_matrix(cm, classes, img_path):
+    def draw_multiclass_confusion_matrix(cm, classes, img_path, is_rehab=False):
         plt.figure(figsize=(8, 8))
-        labels = [" ".join(SkeletonDataset.actions[c - 1].split(" ")[:2]) for c in classes]
+        if not is_rehab:
+            actions = SkeletonDataset.actions
+        else:
+            actions = RehabSkeletonDataset.actions
+        labels = [" ".join(actions[c - 1].split(" ")[:2]) for c in classes]
 
         plt.imshow(cm, cmap="jet")
         for i in range(cm.shape[0]):
@@ -186,9 +191,12 @@ class Trainer:
                   str(np.round(trainer.train_losses[0], 4)) + " -> " + str(np.round(trainer.train_losses[-1], 4)))
 
     @staticmethod
-    def load_model(working_dir, folder_name, model_name, use_keras=False, folder_path=None):
+    def load_model(working_dir, folder_name, model_name, use_keras=False, folder_path=None, is_rehab=False):
         if folder_name is not None:
-            filepath = working_dir + Trainer.results_fold + folder_name + "/"
+            results_fold = Trainer.results_fold
+            if is_rehab:
+                results_fold = "../IntelliRehabDS/" + results_fold
+            filepath = working_dir + results_fold + folder_name + "/"
         else:
             filepath = folder_path
         filepath += model_name + ".pt"
@@ -211,39 +219,59 @@ class Trainer:
                     network_trainer.net.train(x, y, 1, 1)
                     network_trainer.net.model.load_weights(file_path_net)
 
-        if "model_name" not in network_trainer.__dict__.keys():
-            # Handle previous versions of the Trainer classes (no model_name attribute)
-            network_trainer.model_name = model_name
-        try:
-            if "is_2d" not in network_trainer.net.__dict__.keys():
-                # Handle previous versions of the Conv1dNetwork class (no is_2d attribute)
-                network_trainer.net.is_2d = False
+        if not is_rehab:
+            if "model_name" not in network_trainer.__dict__.keys():
+                # Handle previous versions of the Trainer classes (no model_name attribute)
+                network_trainer.model_name = model_name
+            try:
+                if "is_2d" not in network_trainer.net.__dict__.keys():
+                    # Handle previous versions of the Conv1dNetwork class (no is_2d attribute)
+                    network_trainer.net.is_2d = False
 
-            if "num_classes" not in network_trainer.net.__dict__.keys():
-                # Handle previous versions of the Conv1dNetwork class (no num_classes attribute)
-                network_trainer.net.num_classes = 2
-        except:
-            print()
+                if "num_classes" not in network_trainer.net.__dict__.keys():
+                    # Handle previous versions of the Conv1dNetwork class (no num_classes attribute)
+                    network_trainer.net.num_classes = 2
+            except:
+                print()
 
-        if "multiclass" not in network_trainer.__dict__.keys():
-            # Handle previous versions of the NetworkTrainer class (no multiclass attribute)
-            network_trainer.multiclass = False
+            if "multiclass" not in network_trainer.__dict__.keys():
+                # Handle previous versions of the NetworkTrainer class (no multiclass attribute)
+                network_trainer.multiclass = False
 
-        if "normalize_input" not in network_trainer.__dict__.keys():
-            # Handle previous versions of the NetworkTrainer class (no normalize_input attribute)
-            network_trainer.normalize_input = False
+            if "normalize_input" not in network_trainer.__dict__.keys():
+                # Handle previous versions of the NetworkTrainer class (no normalize_input attribute)
+                network_trainer.normalize_input = False
 
-        if "classes" not in network_trainer.__dict__.keys():
-            # Handle previous versions of the NetworkTrainer class (no classes attribute)
-            network_trainer.classes = [8, 9]
+            if "classes" not in network_trainer.__dict__.keys():
+                # Handle previous versions of the NetworkTrainer class (no classes attribute)
+                network_trainer.classes = [8, 9]
 
-        if "15" in network_trainer.model_name and len(network_trainer.classes) != 15:
-            network_trainer.classes = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
+            if "15" in network_trainer.model_name and len(network_trainer.classes) != 15:
+                network_trainer.classes = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
 
-        if "15" not in network_trainer.model_name and len(network_trainer.classes) != 2:
-            network_trainer.classes = [8, 9]
+            if "15" not in network_trainer.model_name and len(network_trainer.classes) != 2:
+                network_trainer.classes = [8, 9]
 
         return network_trainer
+
+    def draw_training_curves(self):
+        plt.close()
+        plt.figure()
+        plt.suptitle("Training curves")
+
+        # Losses
+        plt.subplot(2, 1, 1)
+        plt.plot(self.train_losses, "b", label="Training set")
+        plt.legend()
+        plt.ylabel("Loss")
+        plt.xlabel("Epoch")
+
+        # Accuracies
+        plt.subplot(2, 1, 2)
+        plt.plot(self.train_accs, "b", label="Training set")
+        plt.legend()
+        plt.ylabel("Accuracy")
+        plt.xlabel("Epoch")
 
     @staticmethod
     def show_calibration_table(stats, set_name):

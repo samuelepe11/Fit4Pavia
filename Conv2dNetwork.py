@@ -7,18 +7,33 @@ from Conv1dNetwork import Conv1dNetwork
 # Class
 class Conv2dNetwork(Conv1dNetwork):
 
-    def __init__(self, num_classes=2, binary_output=False):
-        super(Conv2dNetwork, self).__init__(num_classes, True, binary_output)
+    def __init__(self, num_classes=2, binary_output=False, is_rehab=False):
+        super(Conv2dNetwork, self).__init__(num_classes=num_classes, is_2d=True, binary_output=binary_output,
+                                            is_rehab=is_rehab)
 
         # Define attributes
         if self.num_classes == 2:
-            self.layer_dims = [1, 16, 32, 64]
-            self.hidden_dim = 64
-            self.num_rnn_layers = 1
+            if not is_rehab:
+                self.layer_dims = [1, 16, 32, 64]
+                self.hidden_dim = 64
+                self.num_rnn_layers = 1
+                self.use_pools = True
+                self.use_batch_norms = True
+                self.use_dropouts = False
+                self.lr = 0.01
+            else:
+                print("TODO")
         else:
-            self.layer_dims = [1, 64, 64, 64]
-            self.hidden_dim = 64
-            self.num_rnn_layers = 1
+            if not is_rehab:
+                self.layer_dims = [1, 64, 64, 64]
+                self.hidden_dim = 64
+                self.num_rnn_layers = 1
+                self.use_pools = False
+                self.use_batch_norms = False
+                self.use_dropouts = False
+                self.lr = 0.001
+            else:
+                print("TODO")
         self.num_conv_layers = len(self.layer_dims) - 1
 
         # Layers

@@ -4,6 +4,7 @@ import numpy as np
 
 from Simulator import Simulator
 from SkeletonDataset import SkeletonDataset
+from RehabSkeletonDataset import RehabSkeletonDataset
 from NetType import NetType
 from FeatureExtractor import FeatureExtractor
 from MLAlgorithmType import MLAlgorithmType
@@ -14,18 +15,25 @@ class PatientDivisionSimulator(Simulator):
 
     def __init__(self, desired_classes, n_rep, simulator_name, working_dir, folder_name, model_type, train_perc,
                  data_group_dict=None, train_epochs=None, train_lr=None, feature_file=None, normalize_data=False,
-                 use_cuda=True):
+                 use_cuda=True, is_rehab=False):
         super().__init__(desired_classes, n_rep, simulator_name, working_dir, folder_name, model_type, train_perc,
-                         data_group_dict, train_epochs, train_lr, feature_file, normalize_data, use_cuda)
+                         data_group_dict, train_epochs, train_lr, feature_file, normalize_data, use_cuda, is_rehab)
 
     def divide_dataset(self):
         # Perform a division per patient
         if self.feature_file is None or self.model_type == MLAlgorithmType.KNN_DTW:
             # Read skeleton data
-            train_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
-                                         group_dict=self.data_group_dict, data_perc=self.train_perc, divide_pt=True)
-            test_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
-                                        data_names=train_data.remaining_instances)
+            if not self.is_rehab:
+                train_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
+                                             group_dict=self.data_group_dict, data_perc=self.train_perc, divide_pt=True)
+                test_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
+                                            data_names=train_data.remaining_instances)
+            else:
+                train_data = RehabSkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
+                                                  data_perc=self.train_perc, divide_pt=True,
+                                                  maximum_length=self.data_group_dict)
+                test_data = RehabSkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
+                                                 data_names=train_data.remaining_instances)
         else:
             # Read feature data
             data_matrix, dim = FeatureExtractor.read_feature_file(working_dir=self.working_dir,
@@ -53,18 +61,23 @@ if __name__ == "__main__":
     seed1 = 111099
     working_dir1 = "./../"
     # desired_classes1 = [8, 9]
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
+    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
+    desired_classes1 = [1, 2]  # IntelliRehabDS correctness
+    # desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
 
-    data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.LSTM
-    model_type1 = MLAlgorithmType.MLP
+    is_rehab1 = True
+    # data_group_dict1 = {"C": 2, "R": 2}
+    data_group_dict1 = 200
+    model_type1 = NetType.CONV1D
+    # model_type1 = MLAlgorithmType.MLP
     train_perc1 = 0.7
     n_rep1 = 100
-    train_epochs1 = 300
+    train_epochs1 = 500
     # train_lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
-    train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
+    # train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # train_lr1 = 0.0001  # Multiclass Conv1D
-    folder_name1 = "patientVSrandom_division_mlp_15classes"
+    train_lr1 = None
+    folder_name1 = "patientVSrandom_division_conv1d"
     simulator_name1 = "patient_division"
     use_cuda1 = True
 
@@ -72,16 +85,17 @@ if __name__ == "__main__":
     normalize_data1 = True
 
     # Initialize the simulator
-    '''simulator1 = PatientDivisionSimulator(desired_classes=desired_classes1, n_rep=n_rep1,
-                                          simulator_name=simulator_name1, working_dir=working_dir1,
-                                          folder_name=folder_name1, data_group_dict=data_group_dict1,
-                                          model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
-                                          train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1)'''
     simulator1 = PatientDivisionSimulator(desired_classes=desired_classes1, n_rep=n_rep1,
                                           simulator_name=simulator_name1, working_dir=working_dir1,
                                           folder_name=folder_name1, data_group_dict=data_group_dict1,
+                                          model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
+                                          train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1,
+                                          is_rehab=is_rehab1)
+    '''simulator1 = PatientDivisionSimulator(desired_classes=desired_classes1, n_rep=n_rep1,
+                                          simulator_name=simulator_name1, working_dir=working_dir1,
+                                          folder_name=folder_name1, data_group_dict=data_group_dict1,
                                           model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1,
-                                          normalize_data=normalize_data1)
+                                          normalize_data=normalize_data1)'''
 
     # Load simulator
     # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)

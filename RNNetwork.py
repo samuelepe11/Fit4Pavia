@@ -5,22 +5,24 @@ import torch.nn as nn
 # Class
 class RNNetwork(nn.Module):
 
-    def __init__(self, num_classes=2):
+    def __init__(self, num_classes=2, is_rehab=False):
         super(RNNetwork, self).__init__()
 
         # Define attributes
         self.num_classes = num_classes
         if num_classes == 2:
-            self.in_channels = 75
-            self.hidden_dim = 32
-            self.num_layers = 1
-            self.output_neurons = 1
+            if not is_rehab:
+                self.in_channels = 75
+                self.hidden_dim = 32
+                self.num_layers = 1
+                self.output_neurons = 1
+            else:
+                print("TODO")
         else:
-            # TODO
-            self.in_channels = 75
-            self.hidden_dim = 32
-            self.num_layers = 1
-            self.output_neurons = num_classes
+            if not is_rehab:
+                print("TODO")
+            else:
+                print("TODO")
 
         # Layers
         self.rnn = nn.RNN(input_size=self.in_channels, hidden_size=self.hidden_dim, num_layers=self.num_layers,

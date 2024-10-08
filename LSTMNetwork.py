@@ -6,16 +6,22 @@ from RNNetwork import RNNetwork
 # Class
 class LSTMNetwork(RNNetwork):
 
-    def __init__(self, bidirectional, num_classes=2):
-        super(LSTMNetwork, self).__init__(num_classes)
+    def __init__(self, bidirectional, num_classes=2, is_rehab=False):
+        super(LSTMNetwork, self).__init__(num_classes=num_classes, is_rehab=is_rehab)
 
         # Define attributes
         self.bidirectional = bidirectional
         if num_classes == 2:
-            self.hidden_dim = 32
+            if not is_rehab:
+                self.hidden_dim = 32
+            else:
+                print("TODO")
         else:
-            self.num_layers = 1
-            self.hidden_dim = 128
+            if not is_rehab:
+                self.num_layers = 1
+                self.hidden_dim = 128
+            else:
+                print("TODO")
 
         self.fc_input = self.hidden_dim
         if self.bidirectional:

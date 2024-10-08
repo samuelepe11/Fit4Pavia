@@ -8,8 +8,8 @@ from Conv1dNoHybridNetwork import Conv1dNoHybridNetwork
 # Class
 class TCNNetwork(Conv1dNoHybridNetwork):
 
-    def __init__(self, num_classes=2, binary_output=False):
-        super().__init__(num_classes, binary_output=binary_output)
+    def __init__(self, num_classes=2, binary_output=False, is_rehab=False):
+        super().__init__(num_classes=num_classes, binary_output=binary_output, is_rehab=is_rehab)
 
         # Layers
         self.model = Sequential()

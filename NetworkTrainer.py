@@ -5,6 +5,7 @@ import random
 import numpy as np
 import keras
 import time
+import matplotlib.pyplot as plt
 from silence_tensorflow import silence_tensorflow
 from tcn import TCN
 
@@ -20,6 +21,7 @@ from TransformerNetwork import TransformerNetwork
 from SetType import SetType
 from NetType import NetType
 from SkeletonDataset import SkeletonDataset
+from RehabSkeletonDataset import RehabSkeletonDataset
 from StatsHolder import StatsHolder
 from Trainer import Trainer
 
@@ -30,7 +32,8 @@ class NetworkTrainer(Trainer):
     keras_networks = [NetType.CONV1D_NO_HYBRID, NetType.CONV2D_NO_HYBRID, NetType.TCN]
 
     def __init__(self, net_type, working_dir, folder_name, train_data, test_data, epochs, lr,
-                 batch_size=default_batch_size, binary_output=False, normalize_input=False, use_cuda=True):
+                 batch_size=default_batch_size, binary_output=False, normalize_input=False, use_cuda=True,
+                 is_rehab=False):
         super().__init__(working_dir, folder_name, train_data, test_data)
 
         # Initialize attributes
@@ -54,27 +57,27 @@ class NetworkTrainer(Trainer):
         self.descr_train = None
         self.descr_test = None
         if net_type == NetType.LSTM:
-            self.net = LSTMNetwork(bidirectional=False, num_classes=self.num_classes)
+            self.net = LSTMNetwork(bidirectional=False, num_classes=self.num_classes, is_rehab=is_rehab)
         elif net_type == NetType.BLSTM:
-            self.net = LSTMNetwork(bidirectional=True, num_classes=self.num_classes)
+            self.net = LSTMNetwork(bidirectional=True, num_classes=self.num_classes, is_rehab=is_rehab)
         elif net_type == NetType.GRU:
-            self.net = GRUNetwork(num_classes=self.num_classes)
+            self.net = GRUNetwork(num_classes=self.num_classes, is_rehab=is_rehab)
         elif net_type == NetType.CONV1D:
-            self.net = Conv1dNetwork(num_classes=self.num_classes, binary_output=binary_output)
+            self.net = Conv1dNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab)
         elif net_type == NetType.CONV2D:
-            self.net = Conv2dNetwork(num_classes=self.num_classes, binary_output=binary_output)
+            self.net = Conv2dNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab)
         elif net_type == NetType.RNN:
-            self.net = RNNetwork(num_classes=self.num_classes)
+            self.net = RNNetwork(num_classes=self.num_classes, is_rehab=is_rehab)
         elif net_type == NetType.TRANS:
-            self.net = TransformerNetwork(num_classes=self.num_classes)
+            self.net = TransformerNetwork(num_classes=self.num_classes, is_rehab=is_rehab)
         else:
             # Keras-based networks
             if net_type == NetType.CONV1D_NO_HYBRID:
-                self.net = Conv1dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output)
+                self.net = Conv1dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab)
             elif net_type == NetType.TCN:
-                self.net = TCNNetwork(num_classes=self.num_classes, binary_output=binary_output)
+                self.net = TCNNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab)
             else:
-                self.net = Conv2dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output)
+                self.net = Conv2dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab)
             # Redefine datasets
             self.classes = self.train_data.classes
             self.descr_train = self.train_data.data_files
@@ -85,7 +88,7 @@ class NetworkTrainer(Trainer):
         # Define training parameters
         self.epochs = epochs
         self.batch_size = batch_size
-        self.lr = lr
+        self.lr = lr if lr is not None else self.net.lr
         self.model_name = None
 
         if self.net_type not in self.keras_networks:
@@ -127,6 +130,7 @@ class NetworkTrainer(Trainer):
             for epoch in range(self.epochs):
                 self.set_training(True)
                 train_loss = 0
+                train_acc = 0
                 random.shuffle(temp_train_data)
 
                 for x, y in temp_train_data:
@@ -147,21 +151,33 @@ class NetworkTrainer(Trainer):
                     loss = self.criterion(output, y)
                     train_loss += loss.item()
 
+                    # Accuracy evaluation
+                    if not self.multiclass and not self.binary_output:
+                        output = torch.cat((1 - output.unsqueeze(0), output.unsqueeze(0)), dim=-1)
+                    prediction = np.argmax(output.cpu().detach().numpy())
+                    train_acc += int(prediction == y)
+
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
 
-                train_loss = train_loss / len(self.train_data)
+                train_loss /= len(self.train_data)
+                train_acc /= len(self.train_data)
                 self.train_losses.append(train_loss)
+                self.train_accs.append(train_acc)
 
-                if show_epochs:
+                if show_epochs and epoch % 10 == 0:
                     print("Epoch " + str(epoch + 1) + "/" + str(self.epochs) + " completed... train loss = " +
-                          str(np.round(train_loss, 5)))
+                          str(np.round(train_loss, 7)) + " - train acc = " +
+                          str(np.round(train_acc * 100, 2)) + "%")
+                    self.draw_training_curves()
+                    plt.show()
         else:
             use_keras = True
             x, y = self.train_data
             history = net.train(x, y, epochs=self.epochs, batch_size=self.batch_size, show_epochs=show_epochs)
             self.train_losses = history.history["loss"]
+            self.train_accs = history.history["accuracy"]
 
         self.net = net
         Trainer.save_model(self, filename, use_keras=use_keras)
@@ -226,15 +242,14 @@ class NetworkTrainer(Trainer):
                     loss += temp_loss.item()
 
                     # Accuracy evaluation
-                    if not self.multiclass:
-                        prediction = (output >= 0.5).float()
-                    else:
-                        prediction = np.argmax(output)
+                    if not self.multiclass and not self.binary_output:
+                        output = torch.cat((1 - output.unsqueeze(0), output.unsqueeze(0)), dim=-1)
+                    prediction = np.argmax(output.cpu().detach().numpy())
 
                     # Store values for Confusion Matrix calculation
-                    y_true.append(y)
+                    y_true.append(y.cpu())
                     y_pred.append(prediction)
-                    y_prob.append(output)
+                    y_prob.append(output.cpu())
 
             y_true = np.asarray(y_true)
             y_pred = np.asarray(y_pred)
@@ -334,31 +349,40 @@ if __name__ == "__main__":
 
     # Define variables
     working_dir1 = "./../"
-    # desired_classes1 = [8, 9]
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
+    # desired_classes1 = [8, 9]  # NTU HAR binary
+    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
+    desired_classes1 = [1, 2]  # IntelliRehabDS correctness
+    # desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
 
     # Define the data
     train_perc = 0.7
-    train_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
-                                  group_dict={"C": 2, "R": 2}, data_perc=train_perc)
-    test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
-                                 data_names=train_data1.remaining_instances)
+    # train_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+    #                               group_dict={"C": 2, "R": 2}, data_perc=train_perc, divide_pt=True)
+    # test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+    #                              data_names=train_data1.remaining_instances)
+    train_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, data_perc=train_perc,
+                                       divide_pt=False, maximum_length=200)
+    test_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+                                      data_names=train_data1.remaining_instances)
 
     # Define the model
-    folder_name1 = "models_for_JAI"
-    model_name1 = "conv2d"
-    net_type1 = NetType.BLSTM
-    binary_output1 = True
+    folder_name1 = "tests"
+    model_name1 = "test"
+    net_type1 = NetType.CONV1D
+    binary_output1 = False
     normalize_input1 = True
-    # lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
-    lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
+    # lr1 = 0.01  # Every binary or Multiclass Conv2DNoHybrid
+    # lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # lr1 = 0.0001  # Multiclass Conv1D
+    lr1 = None
     use_cuda1 = False
     show_cm1 = True
     assess_calibration1 = True
+    is_rehab1 = True
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=100, lr=lr1,
-                              binary_output=binary_output1, normalize_input=normalize_input1, use_cuda=use_cuda1)
+                              train_data=train_data1, test_data=test_data1, epochs=50, lr=lr1,
+                              binary_output=binary_output1, normalize_input=normalize_input1, use_cuda=use_cuda1,
+                              is_rehab=is_rehab1)
 
     # Train the model
     trainer1.summarize_performance()
@@ -368,7 +392,7 @@ if __name__ == "__main__":
     # Load trained model
     use_keras1 = False
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
-                                  use_keras=use_keras1)
+                                  use_keras=use_keras1, is_rehab=is_rehab1)
 
     avoid_eval1 = False
     trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1,

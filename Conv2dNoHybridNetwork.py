@@ -9,14 +9,20 @@ from Conv1dNoHybridNetwork import Conv1dNoHybridNetwork
 # Class
 class Conv2dNoHybridNetwork(Conv1dNoHybridNetwork):
 
-    def __init__(self, num_classes=2, binary_output=False):
-        super().__init__(num_classes, True, binary_output)
+    def __init__(self, num_classes=2, binary_output=False, is_rehab=False):
+        super().__init__(num_classes=num_classes, conv2_flag=True, binary_output=binary_output, is_rehab=is_rehab)
 
         # Define attributes
         if num_classes == 2:
-            self.layer_dims = [16, 32]
+            if is_rehab:
+                self.layer_dims = [16, 32]
+            else:
+                print("TODO")
         else:
-            self.layer_dims = [64, 64]
+            if not is_rehab:
+                self.layer_dims = [64, 64]
+            else:
+                print("TODO")
 
         # Layers
         self.model = Sequential()

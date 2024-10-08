@@ -12,6 +12,7 @@ from NetworkTrainer import NetworkTrainer
 from SetType import SetType
 from NetType import NetType
 from SkeletonDataset import SkeletonDataset
+from RehabSkeletonDataset import RehabSkeletonDataset
 from StatsHolder import StatsHolder
 from Trainer import Trainer
 from SimpleClassifierTrainer import SimpleClassifierTrainer
@@ -25,14 +26,17 @@ class Simulator:
 
     def __init__(self, desired_classes, n_rep, simulator_name, working_dir, folder_name, model_type, train_perc,
                  data_group_dict=None, train_epochs=None, train_lr=None, feature_file=None, normalize_data=False,
-                 use_cuda=True):
+                 use_cuda=True, is_rehab=False):
         # Initialize attributes
         self.desired_classes = desired_classes
         self.n_rep = n_rep
         self.simulator_name = simulator_name
         self.working_dir = working_dir
         self.folder_name = folder_name
-        self.results_dir = working_dir + self.results_fold + folder_name + "/"
+        if is_rehab:
+            self.folder_name = "rehab_" + self.folder_name
+            self.results_fold = "../IntelliRehabDS/" + self.results_fold
+        self.results_dir = working_dir + self.results_fold + self.folder_name + "/"
         self.data_group_dict = data_group_dict
 
         self.model_type = model_type
@@ -60,10 +64,12 @@ class Simulator:
         self.test_cm_avg = None
 
         # Create a folder to store models
-        if folder_name not in os.listdir(working_dir + self.results_fold):
-            os.mkdir(working_dir + self.results_fold + folder_name)
+        if self.folder_name not in os.listdir(working_dir + self.results_fold):
+            os.mkdir(working_dir + self.results_fold + self.folder_name)
         if simulator_name not in os.listdir(self.results_dir):
             os.mkdir(self.results_dir + simulator_name)
+
+        self.is_rehab = is_rehab
 
     def run_simulation(self, seed, keep_previous_results=False):
         # Define seeds
@@ -92,7 +98,8 @@ class Simulator:
                 trainer = NetworkTrainer(net_type=self.model_type, working_dir=self.working_dir,
                                          folder_name=self.folder_name, train_data=train_data, test_data=test_data,
                                          epochs=self.train_epochs, lr=self.train_lr,
-                                         normalize_input=self.normalize_data, use_cuda=self.use_cuda)
+                                         normalize_input=self.normalize_data, use_cuda=self.use_cuda,
+                                         is_rehab=self.is_rehab)
             else:
                 trainer = SimpleClassifierTrainer(ml_algorithm=self.model_type, working_dir=self.working_dir,
                                                   folder_name=self.folder_name, train_data=train_data,
@@ -160,7 +167,7 @@ class Simulator:
                 file = "trial_" + str(ind)
                 try:
                     trainer = Trainer.load_model(self.working_dir, self.folder_name, self.simulator_name + "/" + file,
-                                                 self.use_keras)
+                                                 self.use_keras, is_rehab=self.is_rehab)
                 # Handle previous versions of the PatientDivisionSimulator class (no use_keras attribute)
                 except AttributeError:
                     trainer = Trainer.load_model(self.working_dir, self.folder_name, self.simulator_name + "/" + file)
@@ -217,10 +224,16 @@ class Simulator:
         # Perform a random division
         if self.feature_file is None or self.model_type == MLAlgorithmType.KNN_DTW:
             # Read skeleton data
-            train_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
-                                         group_dict=self.data_group_dict, data_perc=self.train_perc)
-            test_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
-                                        data_names=train_data.remaining_instances)
+            if not self.is_rehab:
+                train_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
+                                             group_dict=self.data_group_dict, data_perc=self.train_perc)
+                test_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
+                                            data_names=train_data.remaining_instances)
+            else:
+                train_data = RehabSkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
+                                                  data_perc=self.train_perc, maximum_length=self.data_group_dict)
+                test_data = RehabSkeletonDataset(working_dir=self.working_dir, desired_classes=self.desired_classes,
+                                                 data_names=train_data.remaining_instances)
         else:
             # Read feature data
             data_matrix, dim = FeatureExtractor.read_feature_file(working_dir=self.working_dir,
@@ -289,18 +302,23 @@ if __name__ == "__main__":
     seed1 = 111099
     working_dir1 = "./../"
     # desired_classes1 = [8, 9]
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
+    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
+    desired_classes1 = [1, 2]  # IntelliRehabDS correctness
+    # desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
 
-    data_group_dict1 = {"C": 2, "R": 2}
-    model_type1 = NetType.LSTM
-    model_type1 = MLAlgorithmType.MLP
+    is_rehab1 = True
+    # data_group_dict1 = {"C": 2, "R": 2}
+    data_group_dict1 = 200
+    model_type1 = NetType.CONV1D
+    # model_type1 = MLAlgorithmType.MLP
     train_perc1 = 0.7
     n_rep1 = 100
-    train_epochs1 = 300
+    train_epochs1 = 500
     # train_lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
-    train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
+    # train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # train_lr1 = 0.0001  # Multiclass Conv1D
-    folder_name1 = "patientVSrandom_division_mlp_15classes"
+    train_lr1 = None
+    folder_name1 = "patientVSrandom_division_conv1d"
     simulator_name1 = "random_division"
     use_cuda1 = True
 
@@ -308,14 +326,14 @@ if __name__ == "__main__":
     normalize_data1 = True
 
     # Initialize the simulator
-    '''simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
-                           working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
-                           model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
-                           train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1)'''
     simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
                            working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
+                           model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
+                           train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1, is_rehab=is_rehab1)
+    '''simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
+                           working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
                            model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1,
-                           normalize_data=normalize_data1)
+                           normalize_data=normalize_data1)'''
 
     # Load simulator
     # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1)

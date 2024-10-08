@@ -12,18 +12,24 @@ class Conv1dNoHybridNetwork:
     # Define class attributes
     mask_value = 0.0
 
-    def __init__(self, num_classes=2, conv2_flag=False, binary_output=False):
+    def __init__(self, num_classes=2, conv2_flag=False, binary_output=False, is_rehab=False):
 
         # Define attributes
         self.num_classes = num_classes
         if num_classes == 2:
-            self.layer_dims = [16, 32]
+            if not is_rehab:
+                self.layer_dims = [16, 32]
+            else:
+                print("TODO")
             if not binary_output:
                 self.output_neurons = 1
             else:
                 self.output_neurons = 2
         else:
-            self.layer_dims = [64, 64]
+            if not is_rehab:
+                self.layer_dims = [64, 64]
+            else:
+                print("TODO")
             self.output_neurons = num_classes
 
         # Layers

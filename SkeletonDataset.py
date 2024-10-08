@@ -70,7 +70,7 @@ class SkeletonDataset(Dataset):
                  "right leg": list(range(12, 16)), "left leg": list(range(16, 20)), "hands": list(range(21, 25))}
 
     def __init__(self, working_dir, desired_classes, group_dict=None, data_perc=None, divide_pt=False, data_names=None,
-                 dataset_name=None, subfolder=None):
+                 dataset_name=None, subfolder=None, is_rehab_data=False):
         self.working_dir = working_dir
         self.data_path = working_dir + self.data_fold
         self.results_dir = working_dir + self.results_fold
@@ -101,9 +101,8 @@ class SkeletonDataset(Dataset):
 
         if data_names is not None:
             self.data_files = data_names
-
         else:
-            if desired_classes is not None:
+            if desired_classes is not None and not is_rehab_data:
                 temp_data = []
                 for c in desired_classes:
                     file_ending = f"{c:03}" + self.extension
@@ -112,7 +111,7 @@ class SkeletonDataset(Dataset):
 
             # Select only the required data
             if group_dict is not None:
-                self.data_files = SkeletonDataset.find_elements(elements=self.data_files, group_dict=group_dict)
+                self.data_files = self.find_elements(elements=self.data_files, group_dict=group_dict)
                 if "P" in group_dict.keys():
                     self.change_setting(group_dict["P"], "n_patients", "list_pat")
                 if "C" in group_dict.keys():
@@ -123,14 +122,14 @@ class SkeletonDataset(Dataset):
                     self.change_setting(group_dict["R"], "n_reps", "list_rep")
 
             # Separate train and test data
-            if data_perc is not None:
+            if data_perc is not None and not is_rehab_data:
                 # Divide per patients
                 if divide_pt:
                     num_train_pt = round(self.n_patients * data_perc)
                     train_pt = random.sample(range(1, self.n_patients + 1), num_train_pt)
                     temp_data = []
                     for pt in train_pt:
-                        temp_data += SkeletonDataset.find_elements(elements=self.data_files, group_dict={"P": pt})
+                        temp_data += self.find_elements(elements=self.data_files, group_dict={"P": pt})
                     self.remaining_instances = list(set(self.data_files) - set(temp_data))
                     self.data_files = temp_data
                 # Divide randomly
@@ -143,15 +142,19 @@ class SkeletonDataset(Dataset):
         # Read data
         self.data = []
         self.labels = []
-        for s in self.data_files:
-            self.data.append(np.load(self.data_path + s, allow_pickle=True).item())
+        if not is_rehab_data:
+            for s in self.data_files:
+                self.data.append(np.load(self.data_path + s, allow_pickle=True).item())
 
-            s = s.strip(self.extension)
-            self.labels.append(int(s[-3:]))
+                s = s.strip(self.extension)
+                self.labels.append(int(s[-3:]))
 
         # Count data
         self.len = len(self.labels)
         self.seq_lens = None
+
+        self.is_rehab_data = is_rehab_data
+        self.is_correctness_label = None
 
     def __getitem__(self, ind):
         x = self.data[ind]["skel_body0"]
@@ -172,6 +175,12 @@ class SkeletonDataset(Dataset):
 
         # Print class distributions
         class_counts = []
+        if not self.is_rehab_data:
+            class_key = "A"
+            pt_key = "P"
+        else:
+            class_key = 4 if self.is_correctness_label else 2
+            pt_key = 0
         for c in self.classes:
             action = self.actions[c - 1]
 
@@ -180,16 +189,16 @@ class SkeletonDataset(Dataset):
                 os.mkdir(self.results_dir + action)
 
             # Number of elements belonging to the given class
-            class_elements = SkeletonDataset.find_elements(elements=self.data_files, group_dict={"A": c})
+            class_elements = self.find_elements(elements=self.data_files, group_dict={class_key: c})
             n_elements = len(class_elements)
             class_counts.append(n_elements)
-
             print("Items of class '" + action + "': " + str(n_elements))
+
             # Number of elements per class per patient
             pat_counts = []
             non_zero_pat = 0
             for pat in self.list_pat:
-                pat_elements = SkeletonDataset.count_elements(elements=class_elements, group_dict={"P": pat})
+                pat_elements = self.count_elements(elements=class_elements, group_dict={pt_key: pat})
                 pat_counts.append(pat_elements)
                 if pat_elements != 0:
                     print("> Items from patient " + str(pat) + ": " + str(pat_elements))
@@ -199,8 +208,12 @@ class SkeletonDataset(Dataset):
                 trim = True
             else:
                 trim = False
-            self.create_bar_plot(counts=pat_counts, action=action, xlab="Patient", trim=trim)
-            SkeletonDataset.print_separator()
+            if not self.is_rehab_data:
+                x_names = None
+            else:
+                x_names = self.list_pat
+            self.create_bar_plot(counts=pat_counts, action=action, xlab="Patient", trim=trim, x_names=x_names)
+            self.print_separator()
 
             # Find the number of subjects that performed this action
             print(" > A total of " + str(non_zero_pat) + "/" + str(self.n_patients) + " subjects performed this action")
@@ -209,44 +222,55 @@ class SkeletonDataset(Dataset):
             exclusive_pat = self.find_exclusive_patients(ref_class=c)
             print(" > A total of " + str(len(exclusive_pat)) + "/" + str(self.n_patients) +
                   " subjects performed this action and not the other ones: " + str(list(exclusive_pat)))
-            SkeletonDataset.print_separator()
+            self.print_separator()
 
-            # Number of elements per class per camera
-            cam_counts = []
-            for cam in self.list_cam:
-                cam_elements = SkeletonDataset.count_elements(elements=class_elements, group_dict={"C": cam})
-                cam_counts.append(cam_elements)
-                print("> Items from camera " + str(cam) + ": " + str(cam_elements))
-            self.create_pie_plot(counts=cam_counts, action=action, label="Camera")
-            SkeletonDataset.print_separator()
+            if not self.is_rehab_data:
+                # Number of elements per class per camera
+                cam_counts = []
+                for cam in self.list_cam:
+                    cam_elements = self.count_elements(elements=class_elements, group_dict={"C": cam})
+                    cam_counts.append(cam_elements)
+                    print("> Items from camera " + str(cam) + ": " + str(cam_elements))
+                self.create_pie_plot(counts=cam_counts, action=action, label="Camera")
+                self.print_separator()
 
-            # Number of elements per class per setup
-            set_counts = []
-            for setup in self.list_set:
-                set_elements = SkeletonDataset.count_elements(elements=class_elements, group_dict={"S": setup})
-                set_counts.append(set_elements)
-                if set_elements != 0:
-                    print("> Items from setup " + str(setup) + ": " + str(set_elements))
-            self.create_bar_plot(counts=set_counts, action=action, xlab="Setup", trim=True)
-            SkeletonDataset.print_separator()
+                # Number of elements per class per setup
+                set_counts = []
+                for setup in self.list_set:
+                    set_elements = self.count_elements(elements=class_elements, group_dict={"S": setup})
+                    set_counts.append(set_elements)
+                    if set_elements != 0:
+                        print("> Items from setup " + str(setup) + ": " + str(set_elements))
+                self.create_bar_plot(counts=set_counts, action=action, xlab="Setup", trim=True)
+                self.print_separator()
 
-            # Number of elements per class per repetition
-            rep_counts = []
-            for rep in self.list_rep:
-                rep_elements = SkeletonDataset.count_elements(elements=class_elements, group_dict={"R": rep})
-                rep_counts.append(rep_elements)
-                print("> Items from replication " + str(rep) + ": " + str(rep_elements))
-            self.create_pie_plot(counts=rep_counts, action=action, label="Repetition")
-            SkeletonDataset.print_separator()
-
-            # Number of elements per class per camera per repetition
-            for cam in self.list_cam:
+                # Number of elements per class per repetition
+                rep_counts = []
                 for rep in self.list_rep:
-                    cam_rep_elements = SkeletonDataset.count_elements(elements=class_elements,
-                                                                      group_dict={"C": cam, "R": rep})
-                    print("> Items from camera " + str(cam) + " and replication " + str(rep) + ": " +
-                          str(cam_rep_elements))
-            print("\n")
+                    rep_elements = self.count_elements(elements=class_elements, group_dict={"R": rep})
+                    rep_counts.append(rep_elements)
+                    print("> Items from replication " + str(rep) + ": " + str(rep_elements))
+                self.create_pie_plot(counts=rep_counts, action=action, label="Repetition")
+                self.print_separator()
+
+                # Number of elements per class per camera per repetition
+                for cam in self.list_cam:
+                    for rep in self.list_rep:
+                        cam_rep_elements = self.count_elements(elements=class_elements,
+                                                               group_dict={"C": cam, "R": rep})
+                        print("> Items from camera " + str(cam) + " and replication " + str(rep) + ": " +
+                              str(cam_rep_elements))
+                print("\n")
+            else:
+                # Number of elements per class per position
+                pos_counts = []
+                for pos in self.list_pos:
+                    pos_elements = self.count_elements(elements=class_elements, group_dict={5: pos})
+                    pos_counts.append(pos_elements)
+                    print("> Items from position " + str(pos) + ": " + str(pos_elements))
+                self.create_pie_plot(counts=pos_counts, action=action, label=[x.upper() for x in self.list_pos],
+                                     expand_dim=True)
+                self.print_separator()
 
         # Draw class pie plot
         action_list = [self.actions[x - 1] for x in self.classes]
@@ -257,17 +281,21 @@ class SkeletonDataset(Dataset):
         self.create_pie_plot(counts=class_counts, action=None, label=action_list, expand_dim=expand_dim)
 
     def find_exclusive_patients(self, ref_class):
-        ref_elements = SkeletonDataset.find_elements(elements=self.data_files, group_dict={"A": ref_class})
-        ref_set = SkeletonDataset.get_patient_ids(elements=ref_elements)
+        if not self.is_rehab_data:
+            class_key = "A"
+        else:
+            class_key = 4
+        ref_elements = self.find_elements(elements=self.data_files, group_dict={class_key: ref_class})
+        ref_set = self.get_patient_ids(elements=ref_elements)
 
         for c in [x for x in self.classes if x != ref_class]:
-            other_elements = SkeletonDataset.find_elements(elements=self.data_files, group_dict={"A": c})
-            other_set = SkeletonDataset.get_patient_ids(elements=other_elements)
+            other_elements = self.find_elements(elements=self.data_files, group_dict={class_key: c})
+            other_set = self.get_patient_ids(elements=other_elements)
             ref_set -= other_set
 
         return ref_set
 
-    def create_bar_plot(self, counts, action, xlab, trim=False):
+    def create_bar_plot(self, counts, action, xlab, trim=False, x_names=None):
         plt.figure(figsize=(15, 5))
         plt.bar(list(range(1, len(counts) + 1)), counts, width=0.9, color="seagreen")
 
@@ -277,14 +305,17 @@ class SkeletonDataset(Dataset):
         plt.ylabel("Number of items in the dataset")
 
         # Set X values
-        if trim:
-            x_range = range(len(counts) + 2)
+        if not self.is_rehab_data:
+            if trim:
+                x_range = range(len(counts) + 2)
+            else:
+                x_range = np.arange(0, len(counts) + 2, step=5)
+            plt.xticks(list(x_range))
         else:
-            x_range = np.arange(0, len(counts) + 2, step=5)
-        plt.xticks(list(x_range))
+            plt.xticks(np.arange(1, len(x_names) + 1), x_names)
 
         # Remove empty bars
-        if trim:
+        if trim and not self.is_rehab_data:
             lims = []
             for i in range(len(counts)):
                 if counts[i] != 0:
@@ -302,7 +333,7 @@ class SkeletonDataset(Dataset):
         plt.close()
 
     def create_pie_plot(self, counts, action, label, expand_dim=False):
-        if not expand_dim:
+        if not expand_dim or (self.is_rehab_data and len(counts) == 2):
             plt.figure(figsize=(4, 4))
         else:
             plt.figure(figsize=(15, 10))
