@@ -22,7 +22,13 @@ class Conv2dNetwork(Conv1dNetwork):
                 self.use_dropouts = False
                 self.lr = 0.01
             else:
-                print("TODO")
+                self.layer_dims = [1, 128, 128, 128]
+                self.hidden_dim = 128
+                self.num_rnn_layers = 1
+                self.use_pools = False
+                self.use_batch_norms = False
+                self.use_dropouts = True
+                self.lr = 0.00005
         else:
             if not is_rehab:
                 self.layer_dims = [1, 64, 64, 64]

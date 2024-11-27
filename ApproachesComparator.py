@@ -17,12 +17,15 @@ class ApproachesComparator:
     results_fold = Simulator.results_fold
     comparable_stats = ["loss", "acc", "sens", "spec", "precis", "f1", "mcc"]
 
-    def __init__(self, working_dir, folder_name, simulator_name1, simulator_name2, alpha):
+    def __init__(self, working_dir, folder_name, simulator_name1, simulator_name2, alpha, is_rehab=False):
         self.working_dir = working_dir
         self.folder_name = folder_name
-        self.results_dir = working_dir + self.results_fold + folder_name + "/"
-        self.simulator1 = Simulator.load_simulator(working_dir, folder_name, simulator_name1)
-        self.simulator2 = Simulator.load_simulator(working_dir, folder_name, simulator_name2)
+        if is_rehab:
+            self.folder_name = "rehab_" + self.folder_name
+            self.results_fold = "../IntelliRehabDS/" + self.results_fold
+        self.results_dir = working_dir + self.results_fold + self.folder_name + "/"
+        self.simulator1 = Simulator.load_simulator(working_dir, folder_name, simulator_name1, is_rehab=is_rehab)
+        self.simulator2 = Simulator.load_simulator(working_dir, folder_name, simulator_name2, is_rehab=is_rehab)
         self.alpha = alpha
 
         if isinstance(self.simulator2, PatientDivisionSimulator):
@@ -269,12 +272,13 @@ if __name__ == "__main__":
     working_dir1 = "./../"
     sim_name1 = "random_division"
     sim_name2 = "patient_division"
-    folder_name1 = "patientVSrandom_division_mlp_15classes"
+    folder_name1 = "patientVSrandom_division_conv2d"
     alpha1 = 0.05
+    is_rehab1 = True
 
     # Define comparator
     comparator = ApproachesComparator(working_dir=working_dir1, folder_name=folder_name1, simulator_name1=sim_name1,
-                                      simulator_name2=sim_name2, alpha=alpha1)
+                                      simulator_name2=sim_name2, alpha=alpha1, is_rehab=is_rehab1)
     comparator.compare_all_stats()
 
     # Visually compare results

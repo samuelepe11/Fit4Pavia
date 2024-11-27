@@ -152,7 +152,7 @@ class Trainer:
             actions = RehabSkeletonDataset.actions
         labels = [" ".join(actions[c - 1].split(" ")[:2]) for c in classes]
 
-        plt.imshow(cm, cmap="jet")
+        plt.imshow(cm, cmap="Reds")
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
                 val = cm[i, j]
@@ -256,7 +256,7 @@ class Trainer:
 
     def draw_training_curves(self):
         plt.close()
-        plt.figure()
+        plt.figure(figsize=(10, 10))
         plt.suptitle("Training curves")
 
         # Losses

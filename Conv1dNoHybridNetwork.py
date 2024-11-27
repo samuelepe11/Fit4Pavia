@@ -19,8 +19,10 @@ class Conv1dNoHybridNetwork:
         if num_classes == 2:
             if not is_rehab:
                 self.layer_dims = [16, 32]
+                self.lr = 0.01
             else:
-                print("TODO")
+                self.layer_dims = [64, 64]
+                self.lr = 0.01
             if not binary_output:
                 self.output_neurons = 1
             else:
@@ -28,6 +30,7 @@ class Conv1dNoHybridNetwork:
         else:
             if not is_rehab:
                 self.layer_dims = [64, 64]
+                self.lr = 0.001
             else:
                 print("TODO")
             self.output_neurons = num_classes

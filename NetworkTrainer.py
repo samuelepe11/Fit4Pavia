@@ -273,6 +273,8 @@ class NetworkTrainer(Trainer):
             y_true = y
             y_pred = prediction
             y_prob = prediction_prob
+            if not self.multiclass and not self.binary_output:
+                y_prob = np.concatenate([1 - y_prob[:, np.newaxis], y_prob[:, np.newaxis]], axis=-1)
 
         cm = Trainer.compute_binary_confusion_matrix(y_true, y_pred, range(len(class_labels)))
         tp = cm[0]
@@ -368,7 +370,7 @@ if __name__ == "__main__":
     # Define the model
     folder_name1 = "tests"
     model_name1 = "test"
-    net_type1 = NetType.CONV1D
+    net_type1 = NetType.CONV2D_NO_HYBRID
     binary_output1 = False
     normalize_input1 = True
     # lr1 = 0.01  # Every binary or Multiclass Conv2DNoHybrid
@@ -380,7 +382,7 @@ if __name__ == "__main__":
     assess_calibration1 = True
     is_rehab1 = True
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=50, lr=lr1,
+                              train_data=train_data1, test_data=test_data1, epochs=300, lr=lr1,
                               binary_output=binary_output1, normalize_input=normalize_input1, use_cuda=use_cuda1,
                               is_rehab=is_rehab1)
 
@@ -390,7 +392,7 @@ if __name__ == "__main__":
     trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1)
 
     # Load trained model
-    use_keras1 = False
+    use_keras1 = True
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
                                   use_keras=use_keras1, is_rehab=is_rehab1)
 

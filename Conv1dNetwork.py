@@ -24,7 +24,7 @@ class Conv1dNetwork(nn.Module):
                 self.use_dropouts = False
                 self.lr = 0.01
             else:
-                self.layer_dims = [self.in_channels, 32, 64, 128] #128, 128, 128]
+                self.layer_dims = [self.in_channels, 32, 64, 128]
                 self.hidden_dim = 128
                 self.num_rnn_layers = 1
                 self.use_pools = False

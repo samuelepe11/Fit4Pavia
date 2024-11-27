@@ -16,11 +16,14 @@ class Conv2dNoHybridNetwork(Conv1dNoHybridNetwork):
         if num_classes == 2:
             if is_rehab:
                 self.layer_dims = [16, 32]
+                self.lr = 0.01
             else:
-                print("TODO")
+                self.layer_dims = [32, 64]
+                self.lr = 0.01
         else:
             if not is_rehab:
-                self.layer_dims = [64, 64]
+                self.layer_dims = [64, 64] # 32,64
+                self.lr = 0.01
             else:
                 print("TODO")
 
