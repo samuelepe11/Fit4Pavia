@@ -10,19 +10,25 @@ class RNNetwork(nn.Module):
 
         # Define attributes
         self.num_classes = num_classes
+        self.in_channels = 75
         if num_classes == 2:
+            self.output_neurons = 1
             if not is_rehab:
-                self.in_channels = 75
                 self.hidden_dim = 32
                 self.num_layers = 1
-                self.output_neurons = 1
             else:
-                print("TODO")
+                # TODO
+                self.hidden_dim = 32
+                self.num_layers = 1
         else:
             if not is_rehab:
-                print("TODO")
+                # TODO
+                self.hidden_dim = 32
+                self.num_layers = 1
             else:
-                print("TODO")
+                # TODO
+                self.hidden_dim = 32
+                self.num_layers = 1
 
         # Layers
         self.rnn = nn.RNN(input_size=self.in_channels, hidden_size=self.hidden_dim, num_layers=self.num_layers,

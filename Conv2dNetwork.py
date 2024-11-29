@@ -27,7 +27,7 @@ class Conv2dNetwork(Conv1dNetwork):
                 self.num_rnn_layers = 1
                 self.use_pools = False
                 self.use_batch_norms = False
-                self.use_dropouts = True
+                self.use_dropouts = False
                 self.lr = 0.00005
         else:
             if not is_rehab:

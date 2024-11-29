@@ -191,15 +191,14 @@ class Trainer:
                   str(np.round(trainer.train_losses[0], 4)) + " -> " + str(np.round(trainer.train_losses[-1], 4)))
 
     @staticmethod
-    def load_model(working_dir, folder_name, model_name, use_keras=False, folder_path=None, is_rehab=False):
+    def load_model(working_dir, folder_name, model_name, use_keras=False, folder_path=None, is_rehab=False,
+                   change_result_folder=False):
         if folder_name is not None:
             results_fold = Trainer.results_fold
             if is_rehab:
                 results_fold = "../IntelliRehabDS/" + results_fold
-            filepath = working_dir + results_fold + folder_name + "/"
-        else:
-            filepath = folder_path
-        filepath += model_name + ".pt"
+            folder_path = working_dir + results_fold + folder_name + "/"
+        filepath = folder_path + model_name + ".pt"
 
         with open(filepath, "rb") as file:
             if not use_keras:
@@ -252,6 +251,10 @@ class Trainer:
             if "15" not in network_trainer.model_name and len(network_trainer.classes) != 2:
                 network_trainer.classes = [8, 9]
 
+        if network_trainer.results_dir != folder_path:
+            network_trainer.results_dir = folder_path
+            network_trainer.model_name = model_name
+
         return network_trainer
 
     def draw_training_curves(self):
@@ -268,10 +271,13 @@ class Trainer:
 
         # Accuracies
         plt.subplot(2, 1, 2)
-        plt.plot(self.train_accs, "b", label="Training set")
-        plt.legend()
-        plt.ylabel("Accuracy")
-        plt.xlabel("Epoch")
+        try:
+            plt.plot(self.train_accs, "b", label="Training set")
+            plt.legend()
+            plt.ylabel("Accuracy")
+            plt.xlabel("Epoch")
+        except:
+            plt.xlabel("Accuracy values have not been recorded during training!")
 
     @staticmethod
     def show_calibration_table(stats, set_name):

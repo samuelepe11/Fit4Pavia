@@ -68,7 +68,7 @@ if __name__ == "__main__":
     is_rehab1 = True
     # data_group_dict1 = {"C": 2, "R": 2}
     data_group_dict1 = 200
-    model_type1 = NetType.CONV1D_NO_HYBRID
+    model_type1 = NetType.CONV2D_NO_HYBRID
     # model_type1 = MLAlgorithmType.MLP
     train_perc1 = 0.7
     n_rep1 = 100
@@ -77,9 +77,9 @@ if __name__ == "__main__":
     # train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # train_lr1 = 0.0001  # Multiclass Conv1D
     train_lr1 = None
-    folder_name1 = "patientVSrandom_division_conv1d_no_hybrid"
+    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid"
     simulator_name1 = "patient_division"
-    use_cuda1 = True
+    use_cuda1 = False
 
     feature_file1 = "hand_crafted_features_global_15classes.csv"
     normalize_data1 = True
@@ -102,11 +102,11 @@ if __name__ == "__main__":
 
     # Run simulation
     keep_previous_results1 = False
-    # simulator1.run_simulation(seed1, keep_previous_results=keep_previous_results1)
+    simulator1.run_simulation(seed1, keep_previous_results=keep_previous_results1)
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
     avoid_eval1 = False
-    simulator1.reload_simulation_results(avoid_eval=avoid_eval1, is_rehab=is_rehab1)
+    # simulator1.reload_simulation_results(avoid_eval=avoid_eval1, is_rehab=is_rehab1)
 
     # Assess and store simulator
     simulator1.assess_simulation(ci_alpha=0.05)

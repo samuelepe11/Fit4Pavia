@@ -13,13 +13,18 @@ class LSTMNetwork(RNNetwork):
         self.bidirectional = bidirectional
         if num_classes == 2:
             if not is_rehab:
+                self.num_layers = 1
                 self.hidden_dim = 32
+                self.lr = 0.01
             else:
-                print("TODO")
+                self.num_layers = 1
+                self.hidden_dim = 32
+                self.lr = 0.01
         else:
             if not is_rehab:
                 self.num_layers = 1
                 self.hidden_dim = 128
+                self.lr = 0.001
             else:
                 print("TODO")
 
@@ -29,5 +34,5 @@ class LSTMNetwork(RNNetwork):
 
         # Adjust layers
         self.rnn = nn.LSTM(input_size=self.in_channels, hidden_size=self.hidden_dim, batch_first=True,
-                           bidirectional=bidirectional)
+                           bidirectional=bidirectional, num_layers=self.num_layers)
         self.fc = nn.Linear(in_features=self.fc_input, out_features=self.output_neurons)

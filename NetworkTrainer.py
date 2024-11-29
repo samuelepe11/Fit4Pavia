@@ -73,11 +73,13 @@ class NetworkTrainer(Trainer):
         else:
             # Keras-based networks
             if net_type == NetType.CONV1D_NO_HYBRID:
-                self.net = Conv1dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab)
+                self.net = Conv1dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output,
+                                                 is_rehab=is_rehab)
             elif net_type == NetType.TCN:
                 self.net = TCNNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab)
             else:
-                self.net = Conv2dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab)
+                self.net = Conv2dNoHybridNetwork(num_classes=self.num_classes, binary_output=binary_output,
+                                                 is_rehab=is_rehab)
             # Redefine datasets
             self.classes = self.train_data.classes
             self.descr_train = self.train_data.data_files
@@ -358,31 +360,32 @@ if __name__ == "__main__":
 
     # Define the data
     train_perc = 0.7
-    # train_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
-    #                               group_dict={"C": 2, "R": 2}, data_perc=train_perc, divide_pt=True)
-    # test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
-    #                              data_names=train_data1.remaining_instances)
+    '''train_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+                                  group_dict={"C": 2, "R": 2}, data_perc=train_perc, divide_pt=True)
+    test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+                                 data_names=train_data1.remaining_instances)'''
     train_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, data_perc=train_perc,
                                        divide_pt=False, maximum_length=200)
     test_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
                                       data_names=train_data1.remaining_instances)
 
     # Define the model
-    folder_name1 = "tests"
-    model_name1 = "test"
-    net_type1 = NetType.CONV2D_NO_HYBRID
+    folder_name1 = "test"
+    model_name1 = "lstm"
+    net_type1 = NetType.LSTM
     binary_output1 = False
-    normalize_input1 = True
+    normalize_input1 = False
     # lr1 = 0.01  # Every binary or Multiclass Conv2DNoHybrid
     # lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # lr1 = 0.0001  # Multiclass Conv1D
     lr1 = None
+    epochs1 = 300
     use_cuda1 = False
     show_cm1 = True
     assess_calibration1 = True
     is_rehab1 = True
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
-                              train_data=train_data1, test_data=test_data1, epochs=300, lr=lr1,
+                              train_data=train_data1, test_data=test_data1, epochs=epochs1, lr=lr1,
                               binary_output=binary_output1, normalize_input=normalize_input1, use_cuda=use_cuda1,
                               is_rehab=is_rehab1)
 
@@ -392,9 +395,9 @@ if __name__ == "__main__":
     trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1)
 
     # Load trained model
-    use_keras1 = True
+    use_keras1 = False
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
-                                  use_keras=use_keras1, is_rehab=is_rehab1)
+                                  use_keras=use_keras1, is_rehab=is_rehab1, change_result_folder=True)
 
     avoid_eval1 = False
     trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1,
