@@ -22,12 +22,12 @@ from RehabSkeletonDataset import RehabSkeletonDataset
 class Trainer:
     results_fold = "results/models/"
 
-    def __init__(self, working_dir, folder_name, train_data, test_data):
+    def __init__(self, working_dir, folder_name, train_data, test_data, is_rehab=False):
         # Initialize attributes
         self.train_losses = []
         self.train_accs = []
 
-        if isinstance(train_data, RehabSkeletonDataset):
+        if is_rehab:
             self.results_fold = "../IntelliRehabDS/" + self.results_fold
 
         # Define data parameters
@@ -191,8 +191,7 @@ class Trainer:
                   str(np.round(trainer.train_losses[0], 4)) + " -> " + str(np.round(trainer.train_losses[-1], 4)))
 
     @staticmethod
-    def load_model(working_dir, folder_name, model_name, use_keras=False, folder_path=None, is_rehab=False,
-                   change_result_folder=False):
+    def load_model(working_dir, folder_name, model_name, use_keras=False, folder_path=None, is_rehab=False):
         if folder_name is not None:
             results_fold = Trainer.results_fold
             if is_rehab:
@@ -222,6 +221,11 @@ class Trainer:
             if "model_name" not in network_trainer.__dict__.keys():
                 # Handle previous versions of the Trainer classes (no model_name attribute)
                 network_trainer.model_name = model_name
+
+            if network_trainer.results_dir != folder_path:
+                network_trainer.results_dir = folder_path
+                network_trainer.model_name = model_name
+
             try:
                 if "is_2d" not in network_trainer.net.__dict__.keys():
                     # Handle previous versions of the Conv1dNetwork class (no is_2d attribute)
@@ -250,10 +254,6 @@ class Trainer:
 
             if "15" not in network_trainer.model_name and len(network_trainer.classes) != 2:
                 network_trainer.classes = [8, 9]
-
-        if network_trainer.results_dir != folder_path:
-            network_trainer.results_dir = folder_path
-            network_trainer.model_name = model_name
 
         return network_trainer
 

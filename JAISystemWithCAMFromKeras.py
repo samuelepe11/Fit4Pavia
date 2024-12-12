@@ -261,18 +261,18 @@ if __name__ == "__main__":
     system1 = JAISystemWithCAMFromKeras(working_dir=working_dir1, model_name=model_name1, system_name=system_name1)
 
     # Explain one item
-    item_names = ["S011C002P038R002A009", "S010C002P021R002A008"]
+    # item_names = ["S011C002P038R002A009", "S010C002P021R002A008"]
     item_names = ["S029C002P049R002A069", "S031C002P099R002A080"]
-    target_layer1 = "conv2d_1"
-    target_classes = range(2)
+    target_layer1 = "conv2d_97"
+    # target_classes = range(2)
     target_classes = range(15)
-    explainer_types = [ExplainerType.SHAP]
+    explainer_types = [ExplainerType.GC, ExplainerType.HRC, ExplainerType.VC, ExplainerType.LIME, ExplainerType.SHAP]
     show1 = False
     switch_map_format1 = False
     static_joints1 = False
     show_graphs1 = True
     print()
-    '''for item_name1 in item_names:
+    for item_name1 in item_names:
         for explainer_type1 in explainer_types:
             print("Creating", explainer_type1.value, "maps for", item_name1 + "...")
             start = time.time()
@@ -282,9 +282,10 @@ if __name__ == "__main__":
                                 static_joints=static_joints1, show_graphs=show_graphs1)
             end = time.time()
             print(" > duration:", round((end - start) / 60, 4), "min")
-            print()'''
+            print()
 
     # Average explanations
-    set_type1 = SetType.TEST
+    set_types = [SetType.TRAINING, SetType.TEST]
     explainer_type1 = ExplainerType.GC
-    system1.average_explanations(set_type=set_type1, explainer_type=explainer_type1, target_layer=target_layer1)
+    for set_type1 in set_types:
+        system1.average_explanations(set_type=set_type1, explainer_type=explainer_type1, target_layer=target_layer1)

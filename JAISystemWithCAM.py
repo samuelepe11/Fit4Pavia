@@ -214,23 +214,24 @@ if __name__ == "__main__":
 
     # Define variables
     working_dir1 = "./../"
-    model_name1 = "conv1d"
+    model_name1 = "conv2d_15classes"
     system_name1 = "DD_" + model_name1
     avoid_eval1 = True
     system1 = JAISystemWithCAM(working_dir=working_dir1, model_name=model_name1, system_name=system_name1,
                                avoid_eval=avoid_eval1)
 
     # Explain one item
-    item_names = ["S011C002P038R002A009", "S010C002P021R002A008"]
-    # item_names = ["S029C002P049R002A069", "S031C002P099R002A080"]
+    # item_names = ["S011C002P038R002A009", "S010C002P021R002A008"]
+    item_names = ["S029C002P049R002A069", "S031C002P099R002A080"]
     target_layer1 = "conv2"
-    target_classes = range(2)
-    #target_classes = range(15)
-    explainer_types = [ExplainerType.GC]
-    show1 = True
+    # target_classes = range(2)
+    target_classes = range(15)
+    explainer_types = [ExplainerType.GC, ExplainerType.HRC, ExplainerType.LIME, ExplainerType.SHAP,
+                       ExplainerType.GCref, ExplainerType.HRCref]
+    show1 = False
     switch_map_format1 = False
     static_joints1 = False
-    show_graphs1 = False
+    show_graphs1 = True
     print()
     for item_name1 in item_names:
         for explainer_type1 in explainer_types:
@@ -245,6 +246,7 @@ if __name__ == "__main__":
             print()
 
     # Average explanations
-    set_type1 = SetType.TRAINING
+    set_types = [SetType.TRAINING, SetType.TEST]
     explainer_type1 = ExplainerType.GC
-    # system1.average_explanations(set_type=set_type1, explainer_type=explainer_type1, target_layer=target_layer1)
+    for set_type1 in set_types:
+        system1.average_explanations(set_type=set_type1, explainer_type=explainer_type1, target_layer=target_layer1)

@@ -34,7 +34,7 @@ class NetworkTrainer(Trainer):
     def __init__(self, net_type, working_dir, folder_name, train_data, test_data, epochs, lr,
                  batch_size=default_batch_size, binary_output=False, normalize_input=False, use_cuda=True,
                  is_rehab=False):
-        super().__init__(working_dir, folder_name, train_data, test_data)
+        super().__init__(working_dir, folder_name, train_data, test_data, is_rehab)
 
         # Initialize attributes
         self.train_dim = len(self.train_data)
@@ -328,6 +328,9 @@ class NetworkTrainer(Trainer):
                 if "drop" in layer or "batch_norm" in layer:
                     self.net.__dict__[layer].training = training
 
+    def save_portable_model(self):
+        torch.save(self.net.state_dict(), self.results_dir + self.model_name + "/" + self.model_name + ".pth")
+
     @staticmethod
     def set_cuda(net):
         net.cuda()
@@ -365,14 +368,14 @@ if __name__ == "__main__":
     test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
                                  data_names=train_data1.remaining_instances)'''
     train_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, data_perc=train_perc,
-                                       divide_pt=False, maximum_length=200)
+                                       divide_pt=True, maximum_length=200)
     test_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
                                       data_names=train_data1.remaining_instances)
 
     # Define the model
-    folder_name1 = "test"
-    model_name1 = "lstm"
-    net_type1 = NetType.LSTM
+    folder_name1 = "models_for_JAI"
+    model_name1 = "conv1d"
+    net_type1 = NetType.BLSTM
     binary_output1 = False
     normalize_input1 = False
     # lr1 = 0.01  # Every binary or Multiclass Conv2DNoHybrid
@@ -383,24 +386,25 @@ if __name__ == "__main__":
     use_cuda1 = False
     show_cm1 = True
     assess_calibration1 = True
-    is_rehab1 = True
+    is_rehab1 = False
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
                               train_data=train_data1, test_data=test_data1, epochs=epochs1, lr=lr1,
                               binary_output=binary_output1, normalize_input=normalize_input1, use_cuda=use_cuda1,
                               is_rehab=is_rehab1)
 
     # Train the model
-    trainer1.summarize_performance()
+    '''trainer1.summarize_performance()
     trainer1.train(model_name1, show_epochs=True)
-    trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1)
+    trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1)'''
 
     # Load trained model
     use_keras1 = False
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
-                                  use_keras=use_keras1, is_rehab=is_rehab1, change_result_folder=True)
+                                  use_keras=use_keras1, is_rehab=is_rehab1)
 
     avoid_eval1 = False
     trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1,
                                    avoid_eval=avoid_eval1)
 
-
+    # Store model in a portable way
+    trainer1.save_portable_model()

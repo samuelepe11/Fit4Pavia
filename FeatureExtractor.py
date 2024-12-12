@@ -3,6 +3,7 @@ import numpy as np
 from scipy.stats import hmean, median_abs_deviation, iqr, skew, kurtosis
 
 from SkeletonDataset import SkeletonDataset
+from RehabSkeletonDataset import RehabSkeletonDataset
 
 
 # Class
@@ -15,7 +16,12 @@ class FeatureExtractor:
                      "iq_range", "sum_of_area", "mean_energy", "skewness", "kurtosis", "pearson_corr_coeff",
                      "mean_velocity"]
 
-    def __init__(self, working_dir, feature_file, dataset, n_windows, include_l2=True, selected_features=None):
+    def __init__(self, working_dir, feature_file, dataset, n_windows, include_l2=True, selected_features=None,
+                 is_rehab=False):
+        if is_rehab:
+            self.data_processing_fold = "../IntelliRehabDS/" + self.data_processing_fold
+            feature_file = "rehab_" + feature_file
+
         self.working_dir = working_dir
         self.data_processing_dir = working_dir + self.data_processing_fold
         self.feature_file = feature_file
@@ -201,7 +207,13 @@ class FeatureExtractor:
         return data
 
     @staticmethod
-    def read_feature_file(working_dir, feature_file, only_descriptors=False, group_dict=None):
+    def read_feature_file(working_dir, feature_file, only_descriptors=False, group_dict=None, is_rehab=False):
+        if is_rehab:
+            feature_file = "rehab_" + feature_file
+            prefix = "../IntelliRehabDS/"
+        else:
+            prefix = ""
+
         if not only_descriptors or group_dict is not None:
             addon = ""
             dtype = "float"
@@ -209,12 +221,12 @@ class FeatureExtractor:
             addon = "descr_"
             dtype = "str"
 
-        file_path = FeatureExtractor.data_processing_fold + addon + feature_file
+        file_path = prefix + FeatureExtractor.data_processing_fold + addon + feature_file
         data_matrix = FeatureExtractor.load_data_matrix(working_dir=working_dir, file_path=file_path, dtype=dtype)
         dim = data_matrix.shape[0]
 
         # Select desired elements
-        if group_dict is not None:
+        if not is_rehab and group_dict is not None:
             file_path = FeatureExtractor.data_processing_fold + "descr_" + feature_file
             descr = FeatureExtractor.load_data_matrix(working_dir=working_dir, file_path=file_path, dtype="str")
             elements = SkeletonDataset.find_elements(descr, group_dict)
@@ -226,19 +238,23 @@ class FeatureExtractor:
         return data_matrix, dim
 
     @staticmethod
-    def find_patient_indexes(working_dir, feature_file, patients, group_dict=None):
+    def find_patient_indexes(working_dir, feature_file, patients, group_dict=None, is_rehab=False):
         data_descr, dim = FeatureExtractor.read_feature_file(working_dir=working_dir, feature_file=feature_file,
-                                                             only_descriptors=True)
+                                                             only_descriptors=True, is_rehab=is_rehab)
 
         # Select desired elements
-        if group_dict is not None:
+        if not is_rehab and group_dict is not None:
             data_descr = SkeletonDataset.find_elements(data_descr, group_dict)
             dim = len(data_descr)
 
         ind = []
         for pt in patients:
-            substr = "P" + f"{pt:03}"
-            ind += [index for index in range(dim) if substr in data_descr[index]]
+            if not is_rehab:
+                substr = "P" + f"{pt:03}"
+                ind += [index for index in range(dim) if substr in data_descr[index]]
+            else:
+                substr = f"{pt:03}"
+                ind += [index for index in range(dim) if str(data_descr[index]).startswith(substr)]
 
         return ind
 
@@ -262,27 +278,33 @@ class FeatureExtractor:
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
-    # desired_classes1 = [8, 9]
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
-    feature_file1 = "hand_crafted_features_global_15classes.csv"
+    # desired_classes1 = [8, 9] # NTU HAR binary
+    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99] # NTU HAR multiclass
+    desired_classes1 = [1, 2]  # IntelliRehabDS correctness
+    # desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
+
+    feature_file1 = "hand_crafted_features_global.csv"
+    # feature_file1 = "hand_crafted_features_global_15classes.csv"
     n_windows1 = 1
     include_l21 = False
     # selected_features1 = ["mean", "std", "mean_velocity"]
     selected_features1 = None
-    group_dict1 = {"C": 2, "R": 2}
+    is_rehab1 = True
+    group_dict1 = {"C": 2, "R": 2} if not is_rehab1 else None
 
     # Define dataset instance
-    dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1)
+    # dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1)
+    dataset1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, maximum_length=200)
 
     # Build feature dataset
     feature_extractor1 = FeatureExtractor(working_dir=working_dir1, feature_file=feature_file1, dataset=dataset1,
                                           n_windows=n_windows1, include_l2=include_l21,
-                                          selected_features=selected_features1)
+                                          selected_features=selected_features1, is_rehab=is_rehab1)
     feature_extractor1.build_feature_dataset()
 
     # Preprocess dataset
     feature_extractor1.remove_nan()
 
     # Load data
-    # data1, dim1 = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=feature_file1,
-    #                                                  group_dict=group_dict1)
+    data1, dim1 = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=feature_file1,
+                                                     group_dict=group_dict1, is_rehab=is_rehab1)

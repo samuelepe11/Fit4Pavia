@@ -15,41 +15,60 @@ from FeatureExtractor import FeatureExtractor
 from StatsHolder import StatsHolder
 from Trainer import Trainer
 from SkeletonDataset import SkeletonDataset
+from RehabSkeletonDataset import RehabSkeletonDataset
 
 
 # Class
 class SimpleClassifierTrainer(Trainer):
 
     def __init__(self, ml_algorithm, working_dir, folder_name, train_data, test_data, normalize_data=False,
-                 desired_classes=None):
-        super().__init__(working_dir, folder_name, train_data, test_data)
+                 desired_classes=None, is_rehab=False):
+        super().__init__(working_dir, folder_name, train_data, test_data, is_rehab)
 
         # Initialize attributes
         self.ml_algorithm = ml_algorithm
         self.desired_classes = desired_classes
         if ml_algorithm == MLAlgorithmType.SVM:
-            # params = [0.5, "rbf"]  # Regularization parameter and kernel type (apply default settings for each kernel)
-            params = [0.75, "rbf"]  # Multiclass case
+            if not is_rehab:
+                # params = [0.5, "rbf"]  # Regularization parameter and kernel type (apply default settings for each kernel)
+                params = [0.75, "rbf"]  # Multiclass case
+            else:
+                params = [10, "rbf"]
             self.model = SVC(C=params[0], kernel=params[1])
         elif ml_algorithm == MLAlgorithmType.RF:
-            params = [100, "gini"]  # Number of trees and impurity measure
+            if not is_rehab:
+                params = [100, "gini"]  # Number of trees and impurity measure
+            else:
+                params = [50, "gini"]
             self.model = RandomForestClassifier(n_estimators=params[0], criterion=params[1])
         elif ml_algorithm == MLAlgorithmType.AB:
-            # params = [DecisionTreeClassifier(max_depth=1), 100, 1]  # Base classifier, number of estimators and LR
-            params = [DecisionTreeClassifier(max_depth=3), 200, 1]
+            if not is_rehab:
+                # params = [DecisionTreeClassifier(max_depth=1), 100, 1]  # Base classifier, number of estimators and LR
+                params = [DecisionTreeClassifier(max_depth=3), 200, 1]  # Multiclass case
+            else:
+                params = [DecisionTreeClassifier(max_depth=3), 200, 1]
             self.model = AdaBoostClassifier(estimator=params[0], n_estimators=params[1], learning_rate=params[2],
                                             algorithm="SAMME")
         elif ml_algorithm == MLAlgorithmType.MLP:
-            # params = [(64,), 0.01]  # Hidden layer sizes and initial LR
-            params = [(128,), 0.001]
+            if not is_rehab:
+                # params = [(64,), 0.01]  # Hidden layer sizes and initial LR
+                params = [(128,), 0.001]  # Multiclass case
+            else:
+                params = [(64,), 0.001]
             self.model = MLPClassifier(hidden_layer_sizes=params[0], learning_rate_init=params[1])
         elif ml_algorithm == MLAlgorithmType.KNN:
-            params = [5]  # Number of neighbors
+            if not is_rehab:
+                params = [5]  # Number of neighbors
+            else:
+                params = [3]
             self.model = KNeighborsClassifier(n_neighbors=params[0])
         else:
             # Dynamic Time Warping KNN
-            # params = [5]  # Number of neighbors
-            params = [7]
+            if not is_rehab:
+                # params = [5]  # Number of neighbors
+                params = [7]  # Multiclass case
+            else:
+                print("TODO")
             self.model = KNeighborsTimeSeriesClassifier(n_neighbors=params[0], metric="dtw")
 
             # Adjust the data
@@ -147,15 +166,19 @@ if __name__ == "__main__":
 
     # Define variables
     working_dir1 = "./../"
-    # desired_classes1 = [8, 9]
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
-    group_dict1 = {"C": 2, "R": 2}
+    # desired_classes1 = [8, 9] # NTU HAR binary
+    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99] # NTU HAR multiclass
+    desired_classes1 = [1, 2]  # IntelliRehabDS correctness
+    # desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
+
+    is_rehab1 = True
+    group_dict1 = {"C": 2, "R": 2} if not is_rehab1 else None
 
     # Read the data
-    # data_file = "hand_crafted_features_global.csv"
-    data_file = "hand_crafted_features_global_15classes.csv"
+    data_file = "hand_crafted_features_global.csv"
+    # data_file = "hand_crafted_features_global_15classes.csv"
     data_matrix, dim = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=data_file,
-                                                          group_dict=group_dict1)
+                                                          group_dict=group_dict1, is_rehab=is_rehab1)
 
     # Divide the dataset for simple ML models
     train_perc = 0.7
@@ -172,20 +195,26 @@ if __name__ == "__main__":
 
     # Define the data for DTW KNN
     if ml_algorithm1 == MLAlgorithmType.KNN_DTW:
-        train_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+        '''train_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
                                       group_dict={"C": 2, "R": 2}, data_perc=train_perc)
         test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
-                                     data_names=train_data1.remaining_instances)
+                                     data_names=train_data1.remaining_instances)'''
+        train_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+                                           data_perc=train_perc,
+                                           divide_pt=True, maximum_length=200)
+        test_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+                                          data_names=train_data1.remaining_instances)
 
     normalize_data1 = True
     trainer1 = SimpleClassifierTrainer(ml_algorithm=ml_algorithm1, working_dir=working_dir1, folder_name=folder_name1,
                                        train_data=train_data1, test_data=test_data1, normalize_data=normalize_data1,
-                                       desired_classes=desired_classes1)
+                                       desired_classes=desired_classes1, is_rehab=is_rehab1)
 
     # Train the model
     trainer1.train(model_name1)
     trainer1.summarize_performance()
 
     # Load trained model
-    # trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1)
-    # trainer1.summarize_performance()
+    trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
+                                  is_rehab=is_rehab1)
+    trainer1.summarize_performance()

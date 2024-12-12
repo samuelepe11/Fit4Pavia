@@ -21,11 +21,12 @@ class RehabSkeletonDataset(SkeletonDataset):
     list_pos = ["stand", "chair", "wheelchair", "Stand-frame"]
     n_positions = len(list_pos)
 
+    list_pat = list(range(101, 108)) + list(range(201, 208)) + list(range(209, 218)) + list(range(301, 308))
+
     def __init__(self, working_dir, desired_classes, data_perc=None, divide_pt=False, data_names=None,
                  dataset_name=None, subfolder=None, maximum_length=None):
         super().__init__(working_dir, desired_classes, None, data_perc, divide_pt, data_names, dataset_name,
                          subfolder, is_rehab_data=True)
-        self.list_pat = list(range(101, 108)) + list(range(201, 208)) + list(range(209, 218)) + list(range(301, 308))
         self.n_patients = len(self.list_pat)
 
         # Remove files

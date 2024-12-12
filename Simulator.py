@@ -104,7 +104,7 @@ class Simulator:
                 trainer = SimpleClassifierTrainer(ml_algorithm=self.model_type, working_dir=self.working_dir,
                                                   folder_name=self.folder_name, train_data=train_data,
                                                   test_data=test_data, normalize_data=self.normalize_data,
-                                                  desired_classes=self.desired_classes)
+                                                  desired_classes=self.desired_classes, is_rehab=self.is_rehab)
             trainer.train(model_name)
 
             # Store results
@@ -240,7 +240,8 @@ class Simulator:
             # Read feature data
             data_matrix, dim = FeatureExtractor.read_feature_file(working_dir=self.working_dir,
                                                                   feature_file=self.feature_file,
-                                                                  group_dict=self.data_group_dict)
+                                                                  group_dict=self.data_group_dict,
+                                                                  is_rehab=self.is_rehab)
 
             # Divide the dataset
             num_train_pt = round(dim * self.train_perc)
@@ -285,7 +286,7 @@ class Simulator:
             corr = corr_mat[0, 1]
 
         if not np.isnan(corr):
-            print("Pearson's correlation coefficient between " + name_x + " and " + name_y + ":", corr)
+            print("Pearson's correlation coefficient between " + name_x + " and " + name_y + ":", np.round(corr, 3))
             df = len(list_x) - 2
             t = corr / (np.sqrt(1 - corr ** 2 / df))
 
@@ -315,8 +316,8 @@ if __name__ == "__main__":
     is_rehab1 = True
     # data_group_dict1 = {"C": 2, "R": 2}
     data_group_dict1 = 200
-    model_type1 = NetType.CONV2D_NO_HYBRID
-    # model_type1 = MLAlgorithmType.MLP
+    # model_type1 = NetType.LSTM
+    model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
     n_rep1 = 100
     train_epochs1 = 500
@@ -324,22 +325,22 @@ if __name__ == "__main__":
     # train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # train_lr1 = 0.0001  # Multiclass Conv1D
     train_lr1 = None
-    folder_name1 = "patientVSrandom_division_conv2d_no_hybrid"
+    folder_name1 = "patientVSrandom_division_ada"
     simulator_name1 = "random_division"
     use_cuda1 = False
 
-    feature_file1 = "hand_crafted_features_global_15classes.csv"
+    feature_file1 = "hand_crafted_features_global.csv"
     normalize_data1 = True
 
     # Initialize the simulator
-    simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
-                           working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
-                           model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
-                           train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1, is_rehab=is_rehab1)
     '''simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
                            working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
+                           model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
+                           train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1, is_rehab=is_rehab1)'''
+    simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
+                           working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
                            model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1,
-                           normalize_data=normalize_data1)'''
+                           normalize_data=normalize_data1, is_rehab=is_rehab1)
 
     # Load simulator
     # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1, is_rehab=is_rehab1)

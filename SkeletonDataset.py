@@ -8,6 +8,7 @@ import torch
 import torch.nn.utils.rnn as rnn_utils
 from torch.utils.data import Dataset
 from tslearn.preprocessing import TimeSeriesScalerMinMax
+from matplotlib.animation import FuncAnimation
 
 from Conv1dNoHybridNetwork import Conv1dNoHybridNetwork
 
@@ -427,6 +428,55 @@ class SkeletonDataset(Dataset):
 
         return output
 
+    def make_gif(self, item, folder, slowing_parameter=3):
+        filepath = self.results_dir + folder
+        if folder not in os.listdir(self.results_dir):
+            os.mkdir(filepath)
+        filepath += "/" + item + ".gif"
+
+        # Extract x, y, z coordinates of joints
+        if isinstance(item, str):
+            positions, _ = self.get_item_from_name(item)
+        else:
+            positions = item
+        x = positions[:, 0::3]
+        y = positions[:, 1::3]
+        z = positions[:, 2::3]
+
+        max_x, min_x = np.max(x), np.min(x)
+        max_y, min_y = np.max(y), np.min(y)
+        max_z, min_z = np.max(z), np.min(z)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
+        ax.set_xlim(min_x, max_x)
+        ax.set_ylim(min_y, max_y)
+        ax.set_zlim(min_z, max_z)
+        ax.set_box_aspect([1, 1, 1])
+        ax.view_init(elev=90, azim=-90)
+
+        def update(frame):
+            ax.cla()
+            ax.set_xlim(min_x, max_x)
+            ax.set_ylim(min_y, max_y)
+            ax.set_zlim(min_z, max_z)
+            ax.axis("off")
+
+            # Plot skeleton connections
+            for connection in self.connections:
+                joint1_pos = (x[frame, connection[0]], y[frame, connection[0]], z[frame, connection[0]])
+                joint2_pos = (x[frame, connection[1]], y[frame, connection[1]], z[frame, connection[1]])
+                ax.plot([joint1_pos[0], joint2_pos[0]], [joint1_pos[1], joint2_pos[1]],
+                        [joint1_pos[2], joint2_pos[2]], color="black")
+
+            # Plot joints
+            ax.scatter(x[frame], y[frame], z[frame], color="black", marker="o", s=30, alpha=1)
+
+        # create GIF
+        ani = FuncAnimation(fig, update, frames=positions.shape[0], interval=self.dt * 1000 * slowing_parameter)
+        ani.save(filepath, writer="imagemagick")
+        plt.close()
+
     @staticmethod
     def count_elements(elements, group_dict):
         count = len(SkeletonDataset.find_elements(elements, group_dict))
@@ -526,10 +576,16 @@ if __name__ == "__main__":
     # Analyse data of the selected class (with restrictions)
     dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, group_dict={"C": 2, "R": 2},
                                dataset_name="C2R2", subfolder=subfolder1)
-    dataset1.show_statistics()
-    dataset1.show_lengths()
+    # dataset1.show_statistics()
+    # dataset1.show_lengths()
 
     # Analyse data of the selected class
-    dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, subfolder=subfolder1)
-    dataset1.show_statistics()
-    dataset1.show_lengths()
+    # dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, subfolder=subfolder1)
+    # dataset1.show_statistics()
+    # dataset1.show_lengths()
+
+    # Draw GIFs
+    item_names = ["S011C002P038R002A009", "S010C002P021R002A008", "S029C002P049R002A069", "S031C002P099R002A080"]
+    for item_name in item_names:
+        dataset1.make_gif(item_name, "example_gifs", slowing_parameter=3)
+        print()

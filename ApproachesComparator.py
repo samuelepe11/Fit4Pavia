@@ -171,17 +171,17 @@ class ApproachesComparator:
         # Print test means and CIs
         print(self.descr1.upper() + ":")
         print("Test mean accuracy: " + str(round(self.simulator1.mean_test_stats.acc * 100, 2)) + "% >",
-              self.simulator1.mean_test_stats.acc_ci, "> std: " +
+              [np.round(x, 4) for x in self.simulator1.mean_test_stats.acc_ci], "> std: " +
               str(round(self.simulator1.dev_test_stats.acc * 100, 2)) + "%")
         print("Test mean F1-score: " + str(round(self.simulator1.mean_test_stats.f1 * 100, 2)) + "% >",
-              self.simulator1.mean_test_stats.f1_ci, "> std: " +
+              [np.round(x, 4) for x in self.simulator1.mean_test_stats.f1_ci], "> std: " +
               str(round(self.simulator1.dev_test_stats.f1 * 100, 2)) + "%")
         print(self.descr2.upper() + ":")
         print("Test mean accuracy: " + str(round(self.simulator2.mean_test_stats.acc * 100, 2)) + "% >",
-              self.simulator2.mean_test_stats.acc_ci, "> std: " +
+              [np.round(x, 4) for x in self.simulator2.mean_test_stats.acc_ci], "> std: " +
               str(round(self.simulator2.dev_test_stats.acc * 100, 2)) + "%")
         print("Test mean F1-score: " + str(round(self.simulator2.mean_test_stats.f1 * 100, 2)) + "% >",
-              self.simulator2.mean_test_stats.f1_ci, "> std: " +
+              [np.round(x, 4) for x in self.simulator2.mean_test_stats.f1_ci], "> std: " +
               str(round(self.simulator2.dev_test_stats.f1 * 100, 2)) + "%")
         print()
 
@@ -272,7 +272,7 @@ if __name__ == "__main__":
     working_dir1 = "./../"
     sim_name1 = "random_division"
     sim_name2 = "patient_division"
-    folder_name1 = "patientVSrandom_division_conv1d_no_hybrid"
+    folder_name1 = "patientVSrandom_division_ada"
     alpha1 = 0.05
     is_rehab1 = True
 
