@@ -1,4 +1,6 @@
 # Import packages
+import os
+
 import numpy as np
 from scipy.stats import hmean, median_abs_deviation, iqr, skew, kurtosis
 
@@ -187,14 +189,20 @@ class FeatureExtractor:
         self.store_dataset(data, descr, self.feature_file)
         print("Preprocessed dataset stored!")
 
-    def store_dataset(self, data, descr, filename):
+    def store_dataset(self, data, descr, filename, is_variance_analysis=False):
+        dir_path = self.data_processing_dir
+        if is_variance_analysis:
+            dir_path += "variance_analysis/"
+            if "variance_analysis" not in os.listdir(self.data_processing_dir):
+                os.mkdir(dir_path)
+
         # Store data
         headers = self.file_headers
-        path = self.data_processing_dir + filename
+        path = dir_path + filename
         np.savetxt(path, data, delimiter=";", header=headers)
 
         # Store descriptors
-        path = self.data_processing_dir + "descr_" + filename
+        path = dir_path + "descr_" + filename
         np.savetxt(path, descr, delimiter=";", fmt="%s")
 
     @staticmethod
