@@ -189,7 +189,8 @@ class NetworkTrainer(Trainer):
             duration = self.end_time - self.start_time
             print("Execution time:", round(duration / 60, 4), "min")
 
-    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False):
+    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False,
+             return_preds=False):
         if self.use_cuda:
             net = NetworkTrainer.set_cuda(self.net)
             self.criterion = self.criterion.cuda()
@@ -244,7 +245,7 @@ class NetworkTrainer(Trainer):
                     loss += temp_loss.item()
 
                     # Accuracy evaluation
-                    if not self.multiclass and not self.binary_output:
+                    if not self.multiclass and not self.binary_output or self.binary_output and len(output.shape) == 0:
                         output = torch.cat((1 - output.unsqueeze(0), output.unsqueeze(0)), dim=-1)
                     prediction = np.argmax(output.cpu().detach().numpy())
 
@@ -275,8 +276,12 @@ class NetworkTrainer(Trainer):
             y_true = y
             y_pred = prediction
             y_prob = prediction_prob
-            if not self.multiclass and not self.binary_output:
+            if not self.multiclass and not self.binary_output or self.binary_output and len(y_prob.shape) == 1:
                 y_prob = np.concatenate([1 - y_prob[:, np.newaxis], y_prob[:, np.newaxis]], axis=-1)
+
+        if return_preds:
+            y_prob = np.array([y_prob[k, int(y_pred[k])] for k in range(len(y_pred))])
+            return y_true, y_pred, y_prob
 
         cm = Trainer.compute_binary_confusion_matrix(y_true, y_pred, range(len(class_labels)))
         tp = cm[0]
@@ -330,6 +335,21 @@ class NetworkTrainer(Trainer):
 
     def save_portable_model(self):
         torch.save(self.net.state_dict(), self.results_dir + self.model_name + "/" + self.model_name + ".pth")
+
+    def find_data_files(self, data, feature_file=None):
+        all_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.classes,
+                                   group_dict={"C": 2, "R": 2})
+        x, y = data
+        data_files = []
+        for i in range(x.shape[0]):
+            xi = x[i, :, :]
+            xi, _ = SkeletonDataset.remove_padding(xi[np.newaxis, :, :])
+            xi = xi[0]
+            for j in range(len(all_data)):
+                xj, _ = all_data.__getitem__(j)
+                if xi.shape == xj.shape and (xi == xj).all():
+                    data_files.append(all_data.data_files[j])
+        return data_files
 
     @staticmethod
     def set_cuda(net):

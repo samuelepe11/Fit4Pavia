@@ -6,6 +6,7 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
+from scipy.special import expit
 from tslearn.neighbors import KNeighborsTimeSeriesClassifier
 from tslearn.utils import to_time_series_dataset
 
@@ -107,7 +108,8 @@ class SimpleClassifierTrainer(Trainer):
         self.train_accs.append(acc)
         SimpleClassifierTrainer.save_model(self, filename, use_keras=False)
 
-    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False):
+    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False,
+             return_preds=False):
         if set_type == SetType.TRAINING:
             data = self.train_data
         else:
@@ -132,6 +134,17 @@ class SimpleClassifierTrainer(Trainer):
         # Store values for Confusion Matrix calculation
         y_true = y
         y_pred = prediction
+        if return_preds:
+            try:
+                y_prob = self.model.predict_proba(x)
+            except AttributeError:
+                decision_scores = self.model.decision_function(x)
+                y_prob = expit(decision_scores)
+                y_prob = np.stack([1 - y_prob, y_prob], -1)
+                y_prob = y_prob / np.sum(y_prob, axis=1, keepdims=True)
+
+            y_prob = np.array([y_prob[k, int(y_pred[k])] for k in range(len(y_pred))])
+            return y_true, y_pred, y_prob
 
         # Confusion matrix definition
         cm = Trainer.compute_binary_confusion_matrix(prediction, y, classes=range(len(self.desired_classes)))
@@ -155,6 +168,21 @@ class SimpleClassifierTrainer(Trainer):
     def show_model(self):
         print("ML MODEL:")
         print(self.model)
+
+    def find_data_files(self, data, feature_file=None):
+        all_data, _ = FeatureExtractor.read_feature_file(self.working_dir, feature_file, only_descriptors=False,
+                                                         group_dict={"C": 2, "R": 2})
+        all_data_descr, _ = FeatureExtractor.read_feature_file(self.working_dir, feature_file, only_descriptors=True)
+        all_data_descr = SkeletonDataset.find_elements(all_data_descr, group_dict={"C": 2, "R": 2})
+        x = data
+        data_files = []
+        for i in range(x.shape[0]):
+            xi = x[i, :]
+            for j in range(len(all_data)):
+                xj = all_data[j, :]
+                if (xi == xj).all():
+                    data_files.append(all_data_descr[j])
+        return data_files
 
 
 # Main

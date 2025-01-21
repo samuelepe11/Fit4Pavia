@@ -102,6 +102,28 @@ class Trainer:
         results_cw = classwise_calibration(results)
         return results_cw
 
+    def draw_training_curves(self):
+        plt.close()
+        plt.figure(figsize=(10, 10))
+        plt.suptitle("Training curves")
+
+        # Losses
+        plt.subplot(2, 1, 1)
+        plt.plot(self.train_losses, "b", label="Training set")
+        plt.legend()
+        plt.ylabel("Loss")
+        plt.xlabel("Epoch")
+
+        # Accuracies
+        plt.subplot(2, 1, 2)
+        try:
+            plt.plot(self.train_accs, "b", label="Training set")
+            plt.legend()
+            plt.ylabel("Accuracy")
+            plt.xlabel("Epoch")
+        except:
+            plt.xlabel("Accuracy values have not been recorded during training!")
+
     @staticmethod
     def compute_binary_confusion_matrix(y_true, y_predicted, classes=None):
         if classes is None:
@@ -191,7 +213,8 @@ class Trainer:
                   str(np.round(trainer.train_losses[0], 4)) + " -> " + str(np.round(trainer.train_losses[-1], 4)))
 
     @staticmethod
-    def load_model(working_dir, folder_name, model_name, use_keras=False, folder_path=None, is_rehab=False):
+    def load_model(working_dir, folder_name, model_name, use_keras=False, folder_path=None, is_rehab=False,
+                   feature_file=None):
         if folder_name is not None:
             results_fold = Trainer.results_fold
             if is_rehab:
@@ -226,6 +249,17 @@ class Trainer:
                 network_trainer.results_dir = folder_path
                 network_trainer.model_name = model_name
 
+            if "classes" not in network_trainer.__dict__.keys():
+                # Handle previous versions of the NetworkTrainer class (no classes attribute)
+                network_trainer.classes = [8, 9]
+
+            if (not isinstance(network_trainer.train_data, SkeletonDataset) and
+                    "descr_train" not in network_trainer.__dict__.keys()):
+                network_trainer.descr_train = network_trainer.find_data_files(network_trainer.train_data,
+                                                                              feature_file)
+                network_trainer.descr_test = network_trainer.find_data_files(network_trainer.test_data,
+                                                                             feature_file)
+
             try:
                 if "is_2d" not in network_trainer.net.__dict__.keys():
                     # Handle previous versions of the Conv1dNetwork class (no is_2d attribute)
@@ -234,8 +268,12 @@ class Trainer:
                 if "num_classes" not in network_trainer.net.__dict__.keys():
                     # Handle previous versions of the Conv1dNetwork class (no num_classes attribute)
                     network_trainer.net.num_classes = 2
+
+                if "binary_output" not in network_trainer.__dict__.keys() and "net_type" in network_trainer.__dict__.keys():
+                    # Handle previous versions of the NetworkTrainer class (no binary_output attribute)
+                    network_trainer.binary_output = True
             except:
-                print()
+                pass
 
             if "multiclass" not in network_trainer.__dict__.keys():
                 # Handle previous versions of the NetworkTrainer class (no multiclass attribute)
@@ -245,9 +283,9 @@ class Trainer:
                 # Handle previous versions of the NetworkTrainer class (no normalize_input attribute)
                 network_trainer.normalize_input = False
 
-            if "classes" not in network_trainer.__dict__.keys():
-                # Handle previous versions of the NetworkTrainer class (no classes attribute)
-                network_trainer.classes = [8, 9]
+            if "normalize_data" not in network_trainer.__dict__.keys():
+                # Handle previous versions of the SimpleClassifierTrainer class (no normalize_data attribute)
+                network_trainer.normalize_data = False
 
             if "15" in network_trainer.model_name and len(network_trainer.classes) != 15:
                 network_trainer.classes = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]
@@ -256,28 +294,6 @@ class Trainer:
                 network_trainer.classes = [8, 9]
 
         return network_trainer
-
-    def draw_training_curves(self):
-        plt.close()
-        plt.figure(figsize=(10, 10))
-        plt.suptitle("Training curves")
-
-        # Losses
-        plt.subplot(2, 1, 1)
-        plt.plot(self.train_losses, "b", label="Training set")
-        plt.legend()
-        plt.ylabel("Loss")
-        plt.xlabel("Epoch")
-
-        # Accuracies
-        plt.subplot(2, 1, 2)
-        try:
-            plt.plot(self.train_accs, "b", label="Training set")
-            plt.legend()
-            plt.ylabel("Accuracy")
-            plt.xlabel("Epoch")
-        except:
-            plt.xlabel("Accuracy values have not been recorded during training!")
 
     @staticmethod
     def show_calibration_table(stats, set_name):

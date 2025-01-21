@@ -23,6 +23,7 @@ class FeatureExtractor:
         if is_rehab:
             self.data_processing_fold = "../IntelliRehabDS/" + self.data_processing_fold
             feature_file = "rehab_" + feature_file
+        self.is_rehab = is_rehab
 
         self.working_dir = working_dir
         self.data_processing_dir = working_dir + self.data_processing_fold
@@ -215,7 +216,8 @@ class FeatureExtractor:
         return data
 
     @staticmethod
-    def read_feature_file(working_dir, feature_file, only_descriptors=False, group_dict=None, is_rehab=False):
+    def read_feature_file(working_dir, feature_file, only_descriptors=False, group_dict=None, is_rehab=False,
+                          variance_analysis_class_n=None):
         if is_rehab:
             feature_file = "rehab_" + feature_file
             prefix = "../IntelliRehabDS/"
@@ -229,13 +231,19 @@ class FeatureExtractor:
             addon = "descr_"
             dtype = "str"
 
-        file_path = prefix + FeatureExtractor.data_processing_fold + addon + feature_file
+        if variance_analysis_class_n is not None:
+            addon1 = "variance_analysis/"
+            feature_file += "_" + str(variance_analysis_class_n) + "classes.csv"
+        else:
+            addon1 = ""
+
+        file_path = prefix + FeatureExtractor.data_processing_fold + addon1 + addon + feature_file
         data_matrix = FeatureExtractor.load_data_matrix(working_dir=working_dir, file_path=file_path, dtype=dtype)
         dim = data_matrix.shape[0]
 
         # Select desired elements
         if not is_rehab and group_dict is not None:
-            file_path = FeatureExtractor.data_processing_fold + "descr_" + feature_file
+            file_path = FeatureExtractor.data_processing_fold + addon1 + "descr_" + feature_file
             descr = FeatureExtractor.load_data_matrix(working_dir=working_dir, file_path=file_path, dtype="str")
             elements = SkeletonDataset.find_elements(descr, group_dict)
 
