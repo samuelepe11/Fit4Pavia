@@ -18,8 +18,8 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
     # Define class attributes
     data_processing_fold = "results/data_processing/"
     models_folder = Trainer.results_fold
-    feature_names = ["features_normalised_distance", "signals_normalised_cross_correlation", "signals_kl_divergence",
-                     "signals_dtw_distance"]
+    #feature_names = ["features_normalised_distance", "signals_normalised_cross_correlation", "signals_kl_divergence",
+    feature_names = ["signals_dtw_distance"]
 
     def __init__(self, working_dir, feature_input_file, dataset, group_dict=None, is_rehab=False):
         super().__init__(working_dir, None, dataset, None, False, None,
@@ -75,7 +75,7 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
         if selected_feature == "features_normalised_distance":
             feature_list = np.abs((x1 - x2) / (x1 + x2 + 1e-10))
         elif selected_feature == "signals_dtw_distance":
-            feature_list = [dtw.distance(x1[:, i], x2[:, i]) for i in range(x1.shape[1])]
+            feature_list = [dtw.lb_keogh(x1[:, i], x2[:, i]) for i in range(x1.shape[1])]
         elif selected_feature == "signals_kl_divergence":
             feature_list = []
             for i in range(x1.shape[1]):  # Iterate over channels
@@ -229,14 +229,13 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
 # Main
 if __name__ == "__main__":
     # Define variables
-    # working_dir1 = "./../"
+    working_dir1 = "./../"
     working_dir1 = "D:/Fit4Pavia/read_ntu_rgbd/"
-    # desired_classes1 = [8, 9]  # NTU HAR binary
+    desired_classes1 = [8, 9]  # NTU HAR binary
     # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
-    desired_classes1 = [1, 2]  # IntelliRehabDS correctness
+    # desired_classes1 = [1, 2]  # IntelliRehabDS correctness
 
     feature_file1 = "hand_crafted_features_global_all.csv"
-    feature_file1 = "hand_crafted_features_global.csv"
     # feature_file1 = "hand_crafted_features_global_15classes.csv"
     is_rehab1 = False
     group_dict1 = {"C": 2, "R": 2} if not is_rehab1 else 200
@@ -257,8 +256,8 @@ if __name__ == "__main__":
     #                                                                  group_dict=group_dict1, is_rehab=is_rehab1,
     #                                                                  variance_analysis_class_n=len(desired_classes1))
 
-    # Build item-level features
-    folder_name1 = "patientVSrandom_division_svm"
+    # Build item-level features and store dataset
+    folder_name1 = "patientVSrandom_division_knn"
     use_keras1 = False
     avoid_eval1 = False
     feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)

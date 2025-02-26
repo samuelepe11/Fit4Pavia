@@ -188,7 +188,8 @@ class Trainer:
 
     @staticmethod
     def save_model(trainer, model_name, use_keras,
-                   absolute_path="C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/read_ntu_rgbd/"):
+                   absolute_path="C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/read_ntu_rgbd/",
+                   is_rehab=False):
         file_path = trainer.results_dir + model_name + ".pt"
         with open(file_path, "wb") as file:
             if not use_keras:
@@ -197,6 +198,8 @@ class Trainer:
                 if trainer.net_type == NetType.TCN:
                     # Store the network separately because dill is unable to store TCN layers
                     file_path_net = file_path.strip(".pt") + "_net.pt"
+                    if is_rehab:
+                        absolute_path = "C:/Users/samue/OneDrive/Desktop/Files/Dottorato/Fit4Pavia/"
                     file_path_net = absolute_path + file_path_net.strip("./../")
                     trainer.net.model.save(file_path_net)
                     trainer.net = "Empty"

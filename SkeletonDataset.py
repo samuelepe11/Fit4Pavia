@@ -213,7 +213,7 @@ class SkeletonDataset(Dataset):
                 x_names = None
             else:
                 x_names = self.list_pat
-            self.create_bar_plot(counts=pat_counts, action=action, xlab="Patient", trim=trim, x_names=x_names)
+            self.create_bar_plot(counts=pat_counts, action=action, xlab="Subject", trim=trim, x_names=x_names)
             self.print_separator()
 
             # Find the number of subjects that performed this action

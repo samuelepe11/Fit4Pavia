@@ -71,7 +71,7 @@ class Simulator:
 
         self.is_rehab = is_rehab
 
-    def run_simulation(self, seed, keep_previous_results=False):
+    def run_simulation(self, seed, keep_previous_results=False, is_rehab=False):
         # Define seeds
         random.seed(seed)
         torch.manual_seed(seed)
@@ -105,7 +105,7 @@ class Simulator:
                                                   folder_name=self.folder_name, train_data=train_data,
                                                   test_data=test_data, normalize_data=self.normalize_data,
                                                   desired_classes=self.desired_classes, is_rehab=self.is_rehab)
-            trainer.train(model_name)
+            trainer.train(model_name, is_rehab=is_rehab)
 
             # Store results
             self.store_model_results(trainer)
@@ -134,6 +134,10 @@ class Simulator:
 
     def reload_simulation_results(self, avoid_eval=False, is_rehab=False):
         for file in os.listdir(self.results_dir + self.simulator_name):
+            if "net" in file:
+                # Avoid opening the network information in the TCN folders
+                continue
+
             trainer = Trainer.load_model(self.working_dir, self.folder_name, self.simulator_name + "/" +
                                          file.removesuffix(".pt"), self.use_keras, is_rehab=is_rehab)
             self.store_model_results(trainer, avoid_eval=avoid_eval)
@@ -316,16 +320,16 @@ if __name__ == "__main__":
     is_rehab1 = True
     # data_group_dict1 = {"C": 2, "R": 2}
     data_group_dict1 = 200
-    # model_type1 = NetType.LSTM
-    model_type1 = MLAlgorithmType.AB
+    model_type1 = NetType.TCN
+    # model_type1 = MLAlgorithmType.AB
     train_perc1 = 0.7
     n_rep1 = 100
-    train_epochs1 = 500
+    train_epochs1 = 300
     # train_lr1 = 0.01  # Binary or Multiclass Conv2DNoHybrid
     # train_lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # train_lr1 = 0.0001  # Multiclass Conv1D
     train_lr1 = None
-    folder_name1 = "patientVSrandom_division_ada"
+    folder_name1 = "patientVSrandom_division_tcn"
     simulator_name1 = "random_division"
     use_cuda1 = False
 
@@ -333,21 +337,21 @@ if __name__ == "__main__":
     normalize_data1 = True
 
     # Initialize the simulator
-    '''simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
-                           working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
-                           model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
-                           train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1, is_rehab=is_rehab1)'''
     simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
                            working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
+                           model_type=model_type1, train_perc=train_perc1, train_epochs=train_epochs1,
+                           train_lr=train_lr1, normalize_data=normalize_data1, use_cuda=use_cuda1, is_rehab=is_rehab1)
+    '''simulator1 = Simulator(desired_classes=desired_classes1, n_rep=n_rep1, simulator_name=simulator_name1,
+                           working_dir=working_dir1, folder_name=folder_name1, data_group_dict=data_group_dict1,
                            model_type=model_type1, train_perc=train_perc1, feature_file=feature_file1,
-                           normalize_data=normalize_data1, is_rehab=is_rehab1)
+                           normalize_data=normalize_data1, is_rehab=is_rehab1)'''
 
     # Load simulator
     # simulator1 = Simulator.load_simulator(working_dir1, folder_name1, simulator_name1, is_rehab=is_rehab1)
 
     # Run simulation
     keep_previous_results1 = False
-    simulator1.run_simulation(seed1, keep_previous_results=keep_previous_results1)
+    simulator1.run_simulation(seed1, keep_previous_results=keep_previous_results1, is_rehab=is_rehab1)
 
     # Reload simulation results (in case of substantial modifications to the computed statistics)
     avoid_eval1 = False

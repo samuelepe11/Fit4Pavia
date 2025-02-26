@@ -86,6 +86,7 @@ class NetworkTrainer(Trainer):
             self.descr_test = self.test_data.data_files
             self.train_data, self.test_data = SkeletonDataset.get_padded_dataset(self.train_data, self.test_data,
                                                                                  self.train_dim)
+            print()
 
         # Define training parameters
         self.epochs = epochs
@@ -110,7 +111,7 @@ class NetworkTrainer(Trainer):
         self.use_cuda = torch.cuda.is_available() and use_cuda
         self.device = torch.device("cuda" if self.use_cuda else "cpu")
 
-    def train(self, filename=None, show_epochs=False):
+    def train(self, filename=None, show_epochs=False, is_rehab=False):
         self.model_name = filename
         if show_epochs:
             self.start_time = time.time()
@@ -182,7 +183,7 @@ class NetworkTrainer(Trainer):
             self.train_accs = history.history["accuracy"]
 
         self.net = net
-        Trainer.save_model(self, filename, use_keras=use_keras)
+        Trainer.save_model(self, filename, use_keras=use_keras, is_rehab=is_rehab)
 
         if show_epochs:
             self.end_time = time.time()
@@ -333,8 +334,11 @@ class NetworkTrainer(Trainer):
                 if "drop" in layer or "batch_norm" in layer:
                     self.net.__dict__[layer].training = training
 
-    def save_portable_model(self):
-        torch.save(self.net.state_dict(), self.results_dir + self.model_name + "/" + self.model_name + ".pth")
+    def save_portable_model(self, use_keras):
+        if not use_keras:
+            torch.save(self.net.state_dict(), self.results_dir + self.model_name + "/" + self.model_name + ".pth")
+        else:
+            print("'save_portable_model' function is not available for Keras-based models!")
 
     def find_data_files(self, data, feature_file=None):
         all_data = SkeletonDataset(working_dir=self.working_dir, desired_classes=self.classes,
@@ -393,32 +397,32 @@ if __name__ == "__main__":
                                       data_names=train_data1.remaining_instances)
 
     # Define the model
-    folder_name1 = "models_for_JAI"
-    model_name1 = "conv1d"
-    net_type1 = NetType.BLSTM
+    folder_name1 = "test"
+    model_name1 = "tcn"
+    net_type1 = NetType.TCN
     binary_output1 = False
-    normalize_input1 = False
+    normalize_input1 = True
     # lr1 = 0.01  # Every binary or Multiclass Conv2DNoHybrid
     # lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # lr1 = 0.0001  # Multiclass Conv1D
     lr1 = None
-    epochs1 = 300
+    epochs1 = 100
     use_cuda1 = False
     show_cm1 = True
     assess_calibration1 = True
-    is_rehab1 = False
+    is_rehab1 = True
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
                               train_data=train_data1, test_data=test_data1, epochs=epochs1, lr=lr1,
                               binary_output=binary_output1, normalize_input=normalize_input1, use_cuda=use_cuda1,
                               is_rehab=is_rehab1)
 
     # Train the model
-    '''trainer1.summarize_performance()
-    trainer1.train(model_name1, show_epochs=True)
-    trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1)'''
+    trainer1.summarize_performance()
+    trainer1.train(model_name1, show_epochs=True, is_rehab=is_rehab1)
+    trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1)
 
     # Load trained model
-    use_keras1 = False
+    use_keras1 = True
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
                                   use_keras=use_keras1, is_rehab=is_rehab1)
 
@@ -427,4 +431,4 @@ if __name__ == "__main__":
                                    avoid_eval=avoid_eval1)
 
     # Store model in a portable way
-    trainer1.save_portable_model()
+    trainer1.save_portable_model(use_keras=use_keras1)
