@@ -18,8 +18,8 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
     # Define class attributes
     data_processing_fold = "results/data_processing/"
     models_folder = Trainer.results_fold
-    #feature_names = ["features_normalised_distance", "signals_normalised_cross_correlation", "signals_kl_divergence",
-    feature_names = ["signals_dtw_distance"]
+    feature_names = ["features_normalised_distance", "signals_normalised_cross_correlation", "signals_kl_divergence",
+                     "signals_dtw_distance"]
 
     def __init__(self, working_dir, feature_input_file, dataset, group_dict=None, is_rehab=False):
         super().__init__(working_dir, None, dataset, None, False, None,
@@ -231,12 +231,12 @@ if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
     working_dir1 = "D:/Fit4Pavia/read_ntu_rgbd/"
-    desired_classes1 = [8, 9]  # NTU HAR binary
-    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
+    # desired_classes1 = [8, 9]  # NTU HAR binary
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
     # desired_classes1 = [1, 2]  # IntelliRehabDS correctness
 
-    feature_file1 = "hand_crafted_features_global_all.csv"
-    # feature_file1 = "hand_crafted_features_global_15classes.csv"
+    # feature_file1 = "hand_crafted_features_global.csv"
+    feature_file1 = "hand_crafted_features_global_15classes.csv"
     is_rehab1 = False
     group_dict1 = {"C": 2, "R": 2} if not is_rehab1 else 200
 
@@ -257,7 +257,17 @@ if __name__ == "__main__":
     #                                                                  variance_analysis_class_n=len(desired_classes1))
 
     # Build item-level features and store dataset
-    folder_name1 = "patientVSrandom_division_knn"
+    folder_name1 = "patientVSrandom_division_rf_15classes"
+    use_keras1 = False
+    avoid_eval1 = False
+    feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
+
+    feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
+    folder_name1 = "patientVSrandom_division_ada_15classes"
+    use_keras1 = False
+    avoid_eval1 = False
+    feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
+    folder_name1 = "patientVSrandom_division_mlp_15classes"
     use_keras1 = False
     avoid_eval1 = False
     feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
