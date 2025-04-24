@@ -1,4 +1,7 @@
 # Import packages
+import os
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
 import torch
 import torch.nn as nn
 import random
@@ -6,8 +9,16 @@ import numpy as np
 import keras
 import time
 import matplotlib.pyplot as plt
-from silence_tensorflow import silence_tensorflow
+import torch.nn.utils.rnn as rnn_utils
+from torch.utils.data import DataLoader
 from tcn import TCN
+from signal_grad_cam import TorchCamBuilder, TfCamBuilder
+from scipy.stats import shapiro, levene, ttest_ind, mannwhitneyu
+
+import warnings
+# from silence_tensorflow import silence_tensorflow
+warnings.filterwarnings("ignore", category=UserWarning)
+# silence_tensorflow()
 
 from LSTMNetwork import LSTMNetwork
 from GRUNetwork import GRUNetwork
@@ -22,6 +33,7 @@ from SetType import SetType
 from NetType import NetType
 from SkeletonDataset import SkeletonDataset
 from RehabSkeletonDataset import RehabSkeletonDataset
+from RehabSkeletonDatasetForGeneration import RehabSkeletonDatasetForGeneration
 from StatsHolder import StatsHolder
 from Trainer import Trainer
 
@@ -111,7 +123,7 @@ class NetworkTrainer(Trainer):
         self.use_cuda = torch.cuda.is_available() and use_cuda
         self.device = torch.device("cuda" if self.use_cuda else "cpu")
 
-    def train(self, filename=None, show_epochs=False, is_rehab=False):
+    def train(self, filename=None, show_epochs=False, is_rehab=False, batch_size=None):
         self.model_name = filename
         if show_epochs:
             self.start_time = time.time()
@@ -130,15 +142,20 @@ class NetworkTrainer(Trainer):
             else:
                 temp_train_data = list(self.train_data)
 
+            if batch_size is not None:
+                temp_train_data, _ = self.load_data(temp_train_data, batch_size, shuffle=True)
+
             for epoch in range(self.epochs):
                 self.set_training(True)
                 train_loss = 0
                 train_acc = 0
-                random.shuffle(temp_train_data)
+                if batch_size is None:
+                    random.shuffle(temp_train_data)
 
                 for x, y in temp_train_data:
-                    x = torch.from_numpy(x)
-                    x = x.unsqueeze(0)
+                    if batch_size is None:
+                        x = torch.from_numpy(x)
+                        x = x.unsqueeze(0)
                     x = x.to(self.device)
 
                     y = torch.tensor(y)
@@ -157,8 +174,12 @@ class NetworkTrainer(Trainer):
                     # Accuracy evaluation
                     if not self.multiclass and not self.binary_output:
                         output = torch.cat((1 - output.unsqueeze(0), output.unsqueeze(0)), dim=-1)
-                    prediction = np.argmax(output.cpu().detach().numpy())
-                    train_acc += int(prediction == y)
+                    try:
+                        prediction = np.argmax(output.cpu().detach().numpy())
+                        train_acc += int(prediction == y)
+                    except ValueError:
+                        prediction = torch.argmax(output, dim=1)
+                        train_acc += (torch.sum(prediction == y) / y.shape[0]).item()
 
                     self.optimizer.zero_grad()
                     loss.backward()
@@ -191,7 +212,7 @@ class NetworkTrainer(Trainer):
             print("Execution time:", round(duration / 60, 4), "min")
 
     def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False,
-             return_preds=False):
+             return_only_preds=False, return_also_preds=False, is_rehab=False, ext_test_data=None, ext_test_name=None):
         if self.use_cuda:
             net = NetworkTrainer.set_cuda(self.net)
             self.criterion = self.criterion.cuda()
@@ -201,6 +222,9 @@ class NetworkTrainer(Trainer):
         if set_type == SetType.TRAINING:
             data = self.train_data
             dim = self.train_dim
+        elif set_type == SetType.EXT_TEST:
+            data = ext_test_data
+            dim = len(ext_test_data)
         else:
             data = self.test_data
             dim = self.test_dim
@@ -216,7 +240,10 @@ class NetworkTrainer(Trainer):
             is_keras = True
 
         if self.normalize_input:
-            data = SkeletonDataset.normalize_data(data, self.attr_mean, self.attr_std, is_keras=is_keras)
+            if set_type != SetType.EXT_TEST:
+                data = SkeletonDataset.normalize_data(data, self.attr_mean, self.attr_std, is_keras=is_keras)
+            else:
+                data, _, _ = SkeletonDataset.normalize_data(data, is_keras=is_keras)
 
         y_true = []
         y_pred = []
@@ -280,29 +307,74 @@ class NetworkTrainer(Trainer):
             if not self.multiclass and not self.binary_output or self.binary_output and len(y_prob.shape) == 1:
                 y_prob = np.concatenate([1 - y_prob[:, np.newaxis], y_prob[:, np.newaxis]], axis=-1)
 
-        if return_preds:
+        if return_only_preds:
             y_prob = np.array([y_prob[k, int(y_pred[k])] for k in range(len(y_pred))])
             return y_true, y_pred, y_prob
 
+        stats_holder = self.compute_stats(y_true, y_pred, loss, acc, y_prob=y_prob, class_labels=class_labels)
+        if assess_calibration:
+            stats_holder.calibration_results = self.assess_calibration(y_true, y_prob, y_pred, set_type, descr,
+                                                                       ext_test_name=ext_test_name)
+
+        # Compute multiclass confusion matrix
+        cm_name = set_type.value + "_cm"
+        if show_cm:
+            addon = "" if ext_test_name is None else ext_test_name + "_"
+            img_path = self.results_dir + self.model_name + "/" + addon + cm_name + ".png"
+        else:
+            img_path = None
+        self.__dict__[cm_name] = Trainer.compute_multiclass_confusion_matrix(y_true, y_pred, class_labels, img_path,
+                                                                             is_rehab=is_rehab)
+
+        if not return_also_preds:
+            return stats_holder
+        else:
+            return stats_holder, (y_true, y_pred, y_prob)
+
+    def compute_stats(self, y_true, y_pred, loss, acc, class_labels, y_prob=None):
+        n_vals = len(y_true)
+
+        # Get binary confusion matrix
         cm = Trainer.compute_binary_confusion_matrix(y_true, y_pred, range(len(class_labels)))
         tp = cm[0]
         tn = cm[1]
         fp = cm[2]
         fn = cm[3]
-        stats_holder = StatsHolder(loss, acc, tp, tn, fp, fn)
 
-        if assess_calibration:
-            stats_holder.calibration_results = self.assess_calibration(y_true, y_prob, y_pred, set_type, descr)
+        y_prob = torch.tensor(y_prob, dtype=torch.float32)
+        y_pred = torch.tensor(y_pred, dtype=torch.long)
+        y_true = torch.tensor(y_true, dtype=torch.long)
+        if loss is None:
+            if y_prob is not None:
+                loss = self.criterion(y_prob, y_pred)
+                loss = loss.item()
+            else:
+                loss = None
 
-        # Compute multiclass confusion matrix
-        cm_name = set_type.value + "_cm"
-        if show_cm:
-            img_path = self.results_dir + self.model_name + "/" + cm_name + ".png"
-        else:
-            img_path = None
-        self.__dict__[cm_name] = Trainer.compute_multiclass_confusion_matrix(y_true, y_pred, class_labels, img_path)
+        if acc is None:
+            acc = torch.sum(y_true == y_pred) / n_vals
+            acc = acc.item()
 
-        return stats_holder
+        stats = StatsHolder(loss, acc, tp, tn, fp, fn)
+        return stats
+
+    def get_bootstrapped_metrics(self, preds, class_labels, n_rep=100, boot_dim=70, alpha_ci=0.05):
+        y_true, y_pred, y_prob = preds
+        boot_stats = []
+        n_elem = len(y_true)
+        n_samples = int(n_elem * boot_dim / 100)
+        for _ in range(n_rep):
+            boot_ind = np.random.choice(range(n_elem), size=n_samples, replace=True)
+            y_true_boot = y_true[boot_ind]
+            y_pred_boot = y_pred[boot_ind]
+            if y_prob is not None:
+                y_prob_boot = y_prob[boot_ind, :]
+            else:
+                y_prob_boot = None
+            boot_stats.append(self.compute_stats(y_true_boot, y_pred_boot, None, None, class_labels,
+                                                 y_prob=y_prob_boot))
+
+        return StatsHolder.average_stats(stats_list=boot_stats, alpha_ci=alpha_ci)
 
     def show_model(self):
         print("DL MODEL:")
@@ -334,6 +406,12 @@ class NetworkTrainer(Trainer):
                 if "drop" in layer or "batch_norm" in layer:
                     self.net.__dict__[layer].training = training
 
+    def load_data(self, data, batch_size, shuffle=False):
+        dataloader = DataLoader(dataset=data, batch_size=batch_size, shuffle=shuffle, num_workers=2)
+        dim = len(data)
+
+        return dataloader, dim
+
     def save_portable_model(self, use_keras):
         if not use_keras:
             torch.save(self.net.state_dict(), self.results_dir + self.model_name + "/" + self.model_name + ".pth")
@@ -356,13 +434,21 @@ class NetworkTrainer(Trainer):
         return data_files
 
     @staticmethod
-    def set_cuda(net):
-        net.cuda()
-        # Set specific layers
-        for layer in net.__dict__.keys():
-            if isinstance(net.__dict__[layer], nn.Module):
-                # Set cuda devise for parallelization
-                net.__dict__[layer].cuda()
+    def set_cuda(net, is_cuda=True):
+        if is_cuda:
+            net.cuda()
+            # Set specific layers
+            for layer in net.__dict__.keys():
+                if isinstance(net.__dict__[layer], nn.Module):
+                    # Set cuda devise for parallelization
+                    net.__dict__[layer].cuda()
+        else:
+            net.cpu()
+            # Set specific layers
+            for layer in net.__dict__.keys():
+                if isinstance(net.__dict__[layer], nn.Module):
+                    # Set cuda devise for parallelization
+                    net.__dict__[layer].cpu()
 
         return net
 
@@ -376,14 +462,12 @@ if __name__ == "__main__":
     torch.backends.cuda.deterministic = True
     keras.utils.set_random_seed(seed)
 
-    silence_tensorflow()
-
     # Define variables
     working_dir1 = "./../"
     # desired_classes1 = [8, 9]  # NTU HAR binary
     # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
-    desired_classes1 = [1, 2]  # IntelliRehabDS correctness
-    # desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
+    # desired_classes1 = [1, 2]  # IntelliRehabDS correctness
+    desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
 
     # Define the data
     train_perc = 0.7
@@ -391,22 +475,32 @@ if __name__ == "__main__":
                                   group_dict={"C": 2, "R": 2}, data_perc=train_perc, divide_pt=True)
     test_data1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
                                  data_names=train_data1.remaining_instances)'''
-    train_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, data_perc=train_perc,
+    '''train_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, data_perc=train_perc,
                                        divide_pt=True, maximum_length=200)
     test_data1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
-                                      data_names=train_data1.remaining_instances)
+                                      data_names=train_data1.remaining_instances)'''
+    train_data1 = RehabSkeletonDatasetForGeneration(working_dir=working_dir1, desired_classes=desired_classes1,
+                                                    data_perc=train_perc, divide_pt=True, maximum_length=200,
+                                                    extra_dir="real_files_angles/")
+    test_data1 = RehabSkeletonDatasetForGeneration(working_dir=working_dir1, desired_classes=desired_classes1,
+                                                   data_names=train_data1.remaining_instances,
+                                                   extra_dir="real_files_angles/")
+    syn_test_name_list1 = ["cs_v2", "cs_v2_pos", "cv_v3", "cv_v3_pos"]
+    syn_test_data_list1 = [RehabSkeletonDatasetForGeneration(working_dir=working_dir1, desired_classes=desired_classes1,
+                                                             extra_dir="syn_files_angles_" + name + "/")
+                           for name in syn_test_name_list1]
 
     # Define the model
-    folder_name1 = "test"
-    model_name1 = "tcn"
-    net_type1 = NetType.TCN
+    folder_name1 = "models_for_generation"
+    model_name1 = "conv2d_angles"
+    net_type1 = NetType.BLSTM
     binary_output1 = False
     normalize_input1 = True
     # lr1 = 0.01  # Every binary or Multiclass Conv2DNoHybrid
     # lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # lr1 = 0.0001  # Multiclass Conv1D
     lr1 = None
-    epochs1 = 100
+    epochs1 = 300
     use_cuda1 = False
     show_cm1 = True
     assess_calibration1 = True
@@ -417,18 +511,69 @@ if __name__ == "__main__":
                               is_rehab=is_rehab1)
 
     # Train the model
-    trainer1.summarize_performance()
-    trainer1.train(model_name1, show_epochs=True, is_rehab=is_rehab1)
-    trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1)
+    batch_size1 = None
+    # trainer1.summarize_performance()
+    # trainer1.train(model_name1, show_epochs=True, is_rehab=is_rehab1, batch_size=batch_size1)
+    # trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1,
+    #                                is_rehab=is_rehab1)
 
     # Load trained model
-    use_keras1 = True
+    use_keras1 = False
     trainer1 = Trainer.load_model(working_dir=working_dir1, folder_name=folder_name1, model_name=model_name1,
                                   use_keras=use_keras1, is_rehab=is_rehab1)
 
     avoid_eval1 = False
-    trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1,
-                                   avoid_eval=avoid_eval1)
+    compare_output = trainer1.summarize_performance(show_process=True, show_cm=show_cm1,
+                                                    assess_calibration=assess_calibration1, avoid_eval=avoid_eval1,
+                                                    is_rehab=is_rehab1, ext_test_data_list=syn_test_data_list1,
+                                                    ext_test_name_list=syn_test_name_list1)
 
     # Store model in a portable way
-    trainer1.save_portable_model(use_keras=use_keras1)
+    # trainer1.save_portable_model(use_keras=use_keras1)
+
+    # Compare performances of the model in different datasets
+    print("\n=======================================================================================================\n")
+    compare_metric = "acc"
+    compare_alpha = 0.05
+    compare_couples = [("train", "test"), ("train", "cs_v2"), ("train", "cs_v2_pos"), ("train", "cv_v3"),
+                       ("train", "cv_v3_pos"), ("cs_v2", "cs_v2_pos"), ("cv_v3", "cv_v3_pos"), ("cs_v2", "cv_v3"),
+                       ("cs_v2_pos", "cv_v3_pos")]
+    if compare_output is not None:
+        for couple in compare_couples:
+            means, stds, cis, stats = compare_output
+
+            # Show values
+            name1 = couple[0]
+            name2 = couple[1]
+            print("Performance comparison:")
+            print(" - " + name1.upper() + " = " + str(np.round(getattr(means[name1], compare_metric) * 100, 2))
+                  + "%  >  " + "[{:.4f}%, {:.4f}%]".format(*cis[name1][compare_metric]))
+            print(" - " + name2.upper() + " = " + str(np.round(getattr(means[name2], compare_metric) * 100, 2))
+                  + "%  >  " + "[{:.4f}%, {:.4f}%]".format(*cis[name2][compare_metric]))
+
+            # Study normality with Shapiro test
+            arr1 = stats[name1][compare_metric]
+            arr2 = stats[name2][compare_metric]
+            norm1 = shapiro(arr1)[1] > compare_alpha
+            norm2 = shapiro(arr2)[1] > compare_alpha
+
+            # Study homoscedasticity
+            if norm1 and norm2:
+                # Levene test
+                p_val = levene(arr1, arr2, center="mean")[1]
+            else:
+                # Brown–Forsythe test
+                p_val = levene(arr1, arr2, center="median")[1]
+            same_var = p_val > compare_alpha
+
+            # Compare means
+            if norm1 and norm1:
+                # T-test if same variance, Welch's T-test (analog to T-test with Satterhwaite method) otherwise
+                p_val = ttest_ind(arr1, arr2, equal_var=same_var, alternative="greater").pvalue
+            else:
+                # Mann-Whitney U rank test
+                p_val = mannwhitneyu(arr1, arr2, alternative="greater", method="auto")[1]
+            m1_wins = p_val < compare_alpha
+            addon = "" if m1_wins else "NOT "
+            print(name1.upper() + " is " + "greater than " + name2.upper() + " with p-value = " +
+                  "{:.2e}".format(p_val) + "\n")

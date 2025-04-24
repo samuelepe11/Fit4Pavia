@@ -27,6 +27,8 @@ class RNNetwork(nn.Module):
                 self.num_layers = 1
             else:
                 # TODO
+                self.in_channels = 26
+                self.output_neurons = num_classes
                 self.hidden_dim = 32
                 self.num_layers = 1
 

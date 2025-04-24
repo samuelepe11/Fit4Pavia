@@ -70,41 +70,64 @@ class StatsHolder:
         return [p_min, p_max]
 
     @staticmethod
-    def average_stats(stats_list):
+    def average_stats(stats_list, alpha_ci=None):
         loss, acc, tp, tn, fp, fn, sens, spec, precis, f1, mcc = StatsHolder.get_stats_lists(stats_list)
         n_vals = len(stats_list)
 
+        # Get means and standard deviations
         s_loss = np.std(loss)
-        loss = np.mean(loss)
+        m_loss = np.mean(loss)
         s_acc = np.std(acc)
-        acc = np.mean(acc)
+        m_acc = np.mean(acc)
         s_tp = np.std(tp)
-        tp = np.mean(tp)
+        m_tp = np.mean(tp)
         s_tn = np.std(tn)
-        tn = np.mean(tn)
+        m_tn = np.mean(tn)
         s_fp = np.std(fp)
-        fp = np.mean(fp)
+        m_fp = np.mean(fp)
         s_fn = np.std(fn)
-        fn = np.mean(fn)
+        m_fn = np.mean(fn)
 
         s_sens = np.std(sens)
-        sens = np.mean(sens)
+        m_sens = np.mean(sens)
         s_spec = np.std(spec)
-        spec = np.mean(spec)
+        m_spec = np.mean(spec)
         s_precis = np.std(precis)
-        precis = np.mean(precis)
+        m_precis = np.mean(precis)
         s_f1 = np.std(f1)
-        f1 = np.mean(f1)
+        m_f1 = np.mean(f1)
         s_mcc = np.std(mcc)
-        mcc = np.mean(mcc)
+        m_mcc = np.mean(mcc)
 
-        mean_stats = StatsHolder(loss=loss, acc=acc, tp=tp, tn=tn, fp=fp, fn=fn, extra_stats=[n_vals, sens, spec,
-                                                                                              precis, f1, mcc])
-        dev_stats = StatsHolder(loss=s_loss, acc=s_acc, tp=s_tp, tn=s_tn, fp=s_fp, fn=s_fn, extra_stats=[n_vals, s_sens,
-                                                                                                         s_spec,
-                                                                                                         s_precis, s_f1,
-                                                                                                         s_mcc])
-        return mean_stats, dev_stats
+        mean_stats = StatsHolder(loss=m_loss, acc=m_acc, tp=m_tp, tn=m_tn, fp=m_fp, fn=m_fn, 
+                                 extra_stats=[n_vals, m_sens, m_spec, m_precis, m_f1, m_mcc])
+        std_stats = StatsHolder(loss=s_loss, acc=s_acc, tp=s_tp, tn=s_tn, fp=s_fp, fn=s_fn,
+                                extra_stats=[n_vals, s_sens, s_spec, s_precis, s_f1, s_mcc])
+
+        if alpha_ci is None:
+            return mean_stats, std_stats
+        else:
+            # Get 95% confidence intervals
+            percentiles = [100 * alpha_ci / 2, 100 * 1 - alpha_ci / 2]
+            loss_ci = np.percentile(loss, percentiles)
+            acc_ci = np.percentile(acc, percentiles)
+            tp_ci = np.percentile(tp, percentiles)
+            tn_ci = np.percentile(tn, percentiles)
+            fp_ci = np.percentile(fp, percentiles)
+            fn_ci = np.percentile(fn, percentiles)
+            sens_ci = np.percentile(sens, percentiles)
+            spec_ci = np.percentile(spec, percentiles)
+            precis_ci = np.percentile(precis, percentiles)
+            f1_ci = np.percentile(f1, percentiles)
+            mcc_ci = np.percentile(mcc, percentiles)
+
+            ci_dict = {"loss": loss_ci, "acc": acc_ci, "tp": tp_ci, "tn": tn_ci, "fp": fp_ci, "fn": fn_ci,
+                       "sens": sens_ci, "spec": spec_ci, "precis": precis_ci, "f1": f1_ci, "mcc": mcc_ci}
+            stats_list_dict = {"loss": loss, "acc": acc, "tp": tp, "tn": tn, "fp": fp, "fn": fn, "sens": sens,
+                               "spec": spec, "precis": precis, "f1": f1, "mcc": mcc}
+            return mean_stats, std_stats, ci_dict, stats_list_dict
+
+
 
     @staticmethod
     def get_stats_lists(stats_list):
@@ -129,6 +152,26 @@ class StatsHolder:
         # Avoid issues related to the use of eps in the denominator for the computation of some statistics
         stat = np.round(stat, 6)
         return stat
+
+    @staticmethod
+    def average_bootstrap_values(stat_list, alpha_ci=0.05):
+        n_vals = len(stat_list)
+        loss = [stat_list[i].loss for i in range(n_vals)]
+        acc = [stat_list[i].acc for i in range(n_vals)]
+        sens = [stat_list[i].target_sens for i in range(n_vals)]
+        spec = [stat_list[i].target_spec for i in range(n_vals)]
+        precis = [stat_list[i].target_precis for i in range(n_vals)]
+        neg_pred_val = [stat_list[i].target_neg_pred_val for i in range(n_vals)]
+        f1 = [stat_list[i].target_f1 for i in range(n_vals)]
+        mcc = [stat_list[i].target_mcc for i in range(n_vals)]
+        auc = [stat_list[i].target_auc for i in range(n_vals)]
+        fnr = [stat_list[i].target_fnr for i in range(n_vals)]
+        fpr = [stat_list[i].target_fpr for i in range(n_vals)]
+
+        extra_stats = (n_vals, sens, spec, precis, neg_pred_val, f1, mcc, auc, fnr, fpr)
+        stats = StatsHolder(loss, acc, None, None, None, None, extra_stats=extra_stats,
+                            get_distribution_params=True, alpha_ci=alpha_ci)
+        return stats
 
 
 # Main

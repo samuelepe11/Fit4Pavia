@@ -41,19 +41,39 @@ class Trainer:
         self.test_data = test_data
         self.model_name = None
 
-    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False):
+    def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False,
+             return_only_preds=False, return_also_preds=False, is_rehab=False, ext_test_data=None, ext_test_name=None):
         print("The model has not been defined.")
         train_stats = StatsHolder(float("inf"), 0, 0, 0, 0, 0)
         return train_stats
 
-    def summarize_performance(self, show_process=False, show_cm=False, assess_calibration=False, avoid_eval=False):
+    def get_bootstrapped_metrics(self, preds, class_labels, n_rep=100, boot_dim=70, alpha_ci=5):
+        return None, None, None, None
+
+    def summarize_performance(self, show_process=False, show_cm=False, assess_calibration=False, avoid_eval=False,
+                              is_rehab=False, ext_test_data_list=None, ext_test_name_list=None):
+        get_comparable_stat = ext_test_data_list is not None
         if show_cm or assess_calibration or show_process:
             if self.model_name not in os.listdir(self.results_dir):
                 os.mkdir(self.results_dir + self.model_name)
 
         # Show final losses
         train_stats = self.test(set_type=SetType.TRAINING, show_cm=show_cm, assess_calibration=assess_calibration,
-                                avoid_eval=avoid_eval)
+                                avoid_eval=avoid_eval, is_rehab=is_rehab, return_also_preds=get_comparable_stat)
+        if get_comparable_stat:
+            means = {}
+            stds = {}
+            cis = {}
+            stats = {}
+            train_stats, preds = train_stats
+            class_labels = self.train_data.classes if self.net_type not in self.keras_networks else self.classes
+
+            mean_stats, std_stats, ci_dict, stats_list_dict = self.get_bootstrapped_metrics(preds, class_labels)
+            means.update({"train": mean_stats})
+            stds.update({"train": std_stats})
+            cis.update({"train": ci_dict})
+            stats.update({"train": stats_list_dict})
+
         print("Train loss = " + str(round(train_stats.loss, 5)) + " - Train accuracy = "
               + str(round(train_stats.acc * 100, 7)) + "%" + " - Train F1-score = " + str(round(train_stats.f1 * 100,
                                                                                                 7)) + "%")
@@ -61,7 +81,15 @@ class Trainer:
             Trainer.show_calibration_table(train_stats, "training")
 
         test_stats = self.test(set_type=SetType.TEST, show_cm=show_cm, assess_calibration=assess_calibration,
-                               avoid_eval=avoid_eval)
+                               avoid_eval=avoid_eval, is_rehab=is_rehab, return_also_preds=get_comparable_stat)
+        if get_comparable_stat:
+            test_stats, preds = test_stats
+            mean_stats, std_stats, ci_dict, stats_list_dict = self.get_bootstrapped_metrics(preds, class_labels)
+            means.update({"test": mean_stats})
+            stds.update({"test": std_stats})
+            cis.update({"test": ci_dict})
+            stats.update({"test": stats_list_dict})
+
         print("Test loss = " + str(round(test_stats.loss, 5)) + " - Test accuracy = "
               + str(round(test_stats.acc * 100, 7)) + "%" + " - Test F1-score = " + str(round(test_stats.f1 * 100, 7))
               + "%")
@@ -74,7 +102,32 @@ class Trainer:
             plt.savefig(self.results_dir + self.model_name + "/training_curves.png", dpi=300, bbox_inches="tight")
             plt.close()
 
-    def assess_calibration(self, y_true, y_prob, y_pred, set_type, descr=None):
+        if ext_test_data_list is not None:
+            for i, ext_test_data in enumerate(ext_test_data_list):
+                ext_test_name = ext_test_name_list[i]
+                ext_test_name = ext_test_name + "_" if ext_test_name is not None else ""
+                ext_test_stats = self.test(set_type=SetType.EXT_TEST, show_cm=show_cm, assess_calibration=assess_calibration,
+                                           avoid_eval=avoid_eval, is_rehab=is_rehab, ext_test_data=ext_test_data,
+                                           ext_test_name=ext_test_name, return_also_preds=get_comparable_stat)
+                if get_comparable_stat:
+                    ext_test_stats, preds = ext_test_stats
+
+                print(ext_test_name[:-1].upper() + ": External test loss = " + str(round(ext_test_stats.loss, 5)) + " - "
+                      + "External test accuracy = " + str(round(ext_test_stats.acc * 100, 7)) + "%" + " - External test "
+                      + "F1-score = " + str(round(ext_test_stats.f1 * 100, 7)) + "%")
+                if assess_calibration:
+                    Trainer.show_calibration_table(ext_test_stats, ext_test_name + "external test")
+
+                if get_comparable_stat:
+                    mean_stats, std_stats, ci_dict, stats_list_dict = self.get_bootstrapped_metrics(preds, class_labels)
+                    means.update({ext_test_name[:-1]: mean_stats})
+                    stds.update({ext_test_name[:-1]: std_stats})
+                    cis.update({ext_test_name[:-1]: ci_dict})
+                    stats.update({ext_test_name[:-1]: stats_list_dict})
+
+            return means, stds, cis, stats
+
+    def assess_calibration(self, y_true, y_prob, y_pred, set_type, descr=None, ext_test_name=None):
         class_scores = select_probability(y_true, y_prob, y_pred)
 
         # Store results file
@@ -85,14 +138,15 @@ class Trainer:
             data = np.concatenate((descr[:, np.newaxis], data), axis=1)
             titles = ["descr"] + titles
         df = DataFrame(data, columns=titles)
-        df.to_csv(self.results_dir + self.model_name + "/" + set_type.value + "_classification_results.csv",
+        addon = "" if ext_test_name is None else ext_test_name
+        df.to_csv(self.results_dir + self.model_name + "/" + addon + set_type.value + "_classification_results.csv",
                   index=False)
 
         # Draw reliability plot
         reliabilityplot(class_scores, strategy=10, split=False)
         plt.xlabel("Predicted probability")
         plt.ylabel("True probability")
-        plt.savefig(self.results_dir + self.model_name + "/" + set_type.value + "_calibration.png")
+        plt.savefig(self.results_dir + self.model_name + "/" + addon + set_type.value + "_calibration.png")
         plt.close()
 
         # Compute local metrics
@@ -153,7 +207,7 @@ class Trainer:
             return out
 
     @staticmethod
-    def compute_multiclass_confusion_matrix(y_true, y_pred, classes, img_path=None):
+    def compute_multiclass_confusion_matrix(y_true, y_pred, classes, img_path=None, is_rehab=False):
         # Compute confusion matrix
         y_true = torch.tensor(y_true, dtype=torch.int64)
         y_pred = torch.tensor(y_pred, dtype=torch.int64)
@@ -161,7 +215,7 @@ class Trainer:
 
         # Draw heatmap
         if img_path is not None:
-            Trainer.draw_multiclass_confusion_matrix(cm, classes, img_path)
+            Trainer.draw_multiclass_confusion_matrix(cm, classes, img_path, is_rehab=is_rehab)
 
         return cm
 
@@ -172,7 +226,7 @@ class Trainer:
             actions = SkeletonDataset.actions
         else:
             actions = RehabSkeletonDataset.actions
-        labels = [" ".join(actions[c - 1].split(" ")[:2]) for c in classes]
+        labels = [" ".join(actions[c - 1].split(" ")[:3]) for c in classes]
 
         plt.imshow(cm, cmap="Reds")
         for i in range(cm.shape[0]):
@@ -232,6 +286,12 @@ class Trainer:
                 network_trainer = dill.load(file)
 
                 if network_trainer.net_type == NetType.TCN:
+                    if "classes" not in network_trainer.__dict__.keys():
+                        # Handle previous versions of the NetworkTrainer class (no classes attribute)
+                        network_trainer.classes = [8, 9]
+                        network_trainer.num_classes = 2
+                        network_trainer.binary_output = False
+
                     # Overcome issues related to separation of model and trainer during saving
                     file_path_net = filepath.strip(".pt") + "_net.pt"
                     if filepath.startswith(".") and not file_path_net.startswith("."):
@@ -255,6 +315,10 @@ class Trainer:
             if "classes" not in network_trainer.__dict__.keys():
                 # Handle previous versions of the NetworkTrainer class (no classes attribute)
                 network_trainer.classes = [8, 9]
+
+            if "num_classes" not in network_trainer.net.__dict__.keys():
+                # Handle previous versions of the Conv1dNetwork class (no num_classes attribute)
+                network_trainer.net.num_classes = 2
 
             if (not isinstance(network_trainer.train_data, SkeletonDataset) and
                     "descr_train" not in network_trainer.__dict__.keys()):

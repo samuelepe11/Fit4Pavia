@@ -26,7 +26,9 @@ class LSTMNetwork(RNNetwork):
                 self.hidden_dim = 128
                 self.lr = 0.001
             else:
-                print("TODO")
+                self.num_layers = 1
+                self.hidden_dim = 256
+                self.lr = 0.001 if not bidirectional else 0.00001
 
         self.fc_input = self.hidden_dim
         if self.bidirectional:

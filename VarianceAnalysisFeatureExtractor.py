@@ -1,6 +1,7 @@
 # Import packages
 import os
 import numpy as np
+import pandas as pd
 from scipy.special import kl_div
 from dtaidistance import dtw
 
@@ -11,6 +12,7 @@ from Trainer import Trainer
 from Simulator import Simulator
 from PatientDivisionSimulator import PatientDivisionSimulator
 from SetType import SetType
+from NetType import NetType
 
 
 # Class
@@ -111,14 +113,29 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                                 for selected_feature in self.feature_names}
 
         model_path = self.models_dir + folder_name
-        with open(model_path + "/variance_analysis_features.csv", "w") as f:
+        file_name = "variance_analysis_features.csv"
+        simulator_names = ["random_division", "patient_division"]
+        if file_name in os.listdir(model_path):
+            mode = "a"
+            df = pd.read_csv(model_path + "/" + file_name, delimiter=";")
+            if df[" is_cs"].any():
+                simulator_names = ["patient_division"]
+            simul_ids = np.unique(df[" simul_id"])
+            max_id = np.max(simul_ids) if len(simul_ids) > 0 else None
+            df = df[df[" simul_id"] != max_id]
+            df.to_csv(model_path + "/" + file_name, index=False, sep=";", encoding="utf-8")
+        else:
+            mode = "w"
+            max_id = None
+        with open(model_path + "/" + file_name, mode) as f:
             print("Processing features for " + folder_name + "...")
-            # Write header
-            f.write("item_name; simul_id; subj_id; dim_train; dim_test; is_cs; train_acc; test_acc; train_f1; test_f1; "
-                    "avg_feature_dist; avg_cross_corr; avg_kl_dist; avg_dtw_dist; is_train_subj; is_test_subj; "
-                    "pred_class; true_class; pred_confidence; is_pred_correct; item_loss\n")
 
-            simulator_names = ["random_division", "patient_division"]
+            if mode == "w":
+                # Write header
+                f.write("item_name; simul_id; subj_id; dim_train; dim_test; is_cs; train_acc; test_acc; train_f1; test_f1; "
+                        "avg_feature_dist; avg_cross_corr; avg_kl_dist; avg_dtw_dist; is_train_subj; is_test_subj; "
+                        "pred_class; true_class; pred_confidence; is_pred_correct; item_loss\n")
+
             if self.n_classes == 2:
                 simulator_names = ["sit_" + s for s in simulator_names]
 
@@ -134,8 +151,15 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                 is_cs = "patient" in simulator_name
 
                 fold = model_path + "/" + simulator_name
-                n_trials = len(os.listdir(fold))
+                n = len(os.listdir(fold))
+                n_trials = n if simulator.model_type != NetType.TCN else n // 2
                 for simul_id in range(n_trials):
+                    if max_id is not None:
+                        if simul_id < max_id:
+                            continue
+                        else:
+                            print("Reloaded data up to simul_id =", simul_id - 1)
+                            max_id = None
                     train_acc = simulator.train_stats[simul_id].acc
                     test_acc = simulator.test_stats[simul_id].acc
                     train_f1 = simulator.train_stats[simul_id].f1
@@ -231,12 +255,12 @@ if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
     working_dir1 = "D:/Fit4Pavia/read_ntu_rgbd/"
-    # desired_classes1 = [8, 9]  # NTU HAR binary
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
+    desired_classes1 = [8, 9]  # NTU HAR binary
+    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
     # desired_classes1 = [1, 2]  # IntelliRehabDS correctness
 
-    # feature_file1 = "hand_crafted_features_global.csv"
-    feature_file1 = "hand_crafted_features_global_15classes.csv"
+    feature_file1 = "hand_crafted_features_global.csv"
+    # feature_file1 = "hand_crafted_features_global_15classes.csv"
     is_rehab1 = False
     group_dict1 = {"C": 2, "R": 2} if not is_rehab1 else 200
 
@@ -257,17 +281,7 @@ if __name__ == "__main__":
     #                                                                  variance_analysis_class_n=len(desired_classes1))
 
     # Build item-level features and store dataset
-    folder_name1 = "patientVSrandom_division_rf_15classes"
-    use_keras1 = False
-    avoid_eval1 = False
-    feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
-
-    feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
-    folder_name1 = "patientVSrandom_division_ada_15classes"
-    use_keras1 = False
-    avoid_eval1 = False
-    feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
-    folder_name1 = "patientVSrandom_division_mlp_15classes"
-    use_keras1 = False
+    folder_name1 = "patientVSrandom_division_tcn"
+    use_keras1 = True
     avoid_eval1 = False
     feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)

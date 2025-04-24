@@ -71,9 +71,9 @@ class SkeletonDataset(Dataset):
                  "right leg": list(range(12, 16)), "left leg": list(range(16, 20)), "hands": list(range(21, 25))}
 
     def __init__(self, working_dir, desired_classes, group_dict=None, data_perc=None, divide_pt=False, data_names=None,
-                 dataset_name=None, subfolder=None, is_rehab_data=False):
+                 dataset_name=None, subfolder=None, is_rehab_data=False, extra_dir=""):
         self.working_dir = working_dir
-        self.data_path = working_dir + self.data_fold
+        self.data_path = working_dir + self.data_fold + extra_dir
         self.results_dir = working_dir + self.results_fold
         self.subfolder = subfolder
         if subfolder is not None:
@@ -355,6 +355,9 @@ class SkeletonDataset(Dataset):
         else:
             labels = [label + " " + str(i + 1) for i in range(len(counts))]
 
+        non_zero_ind = [i for i in range(len(counts)) if counts[i] != 0]
+        counts = [counts[i] for i in range(len(counts)) if i in non_zero_ind]
+        labels = [labels[i] for i in range(len(labels)) if i in non_zero_ind]
         p, tx, text = plt.pie(counts, labels=labels, autopct="%1.1f%%", startangle=140,
                               colors=sns.color_palette("Greens"))
         for i, a in enumerate(text):
@@ -537,6 +540,7 @@ class SkeletonDataset(Dataset):
     def normalize_data(data, mean=None, std=None, is_keras=False):
         if not is_keras:
             data_list, label_list = data.get_list(to_tensor=False)
+
         else:
             data_list, label_list = data
 
@@ -550,6 +554,7 @@ class SkeletonDataset(Dataset):
                 ax = (0, 1)
             mean = np.mean(temp_data_list, ax)
             std = np.std(temp_data_list, ax)
+            std = np.where(std != 0, std, 1)
             flag = True
 
         data_list = [(x - mean) / std for x in data_list]

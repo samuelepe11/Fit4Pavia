@@ -214,18 +214,18 @@ if __name__ == "__main__":
 
     # Define variables
     working_dir1 = "./../"
-    model_name1 = "conv2d_15classes"
+    model_name1 = "conv2d"
     system_name1 = "DD_" + model_name1
     avoid_eval1 = True
     system1 = JAISystemWithCAM(working_dir=working_dir1, model_name=model_name1, system_name=system_name1,
                                avoid_eval=avoid_eval1)
 
     # Explain one item
-    # item_names = ["S011C002P038R002A009", "S010C002P021R002A008"]
-    item_names = ["S029C002P049R002A069", "S031C002P099R002A080"]
+    item_names = ["S011C002P038R002A009", "S010C002P021R002A008"]
+    # item_names = ["S029C002P049R002A069", "S031C002P099R002A080"]
     target_layer1 = "conv2"
-    # target_classes = range(2)
-    target_classes = range(15)
+    target_classes = range(2)
+    # target_classes = range(15)
     explainer_types = [ExplainerType.GC, ExplainerType.HRC, ExplainerType.LIME, ExplainerType.SHAP,
                        ExplainerType.GCref, ExplainerType.HRCref]
     show1 = False

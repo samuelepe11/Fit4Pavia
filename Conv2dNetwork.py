@@ -39,7 +39,13 @@ class Conv2dNetwork(Conv1dNetwork):
                 self.use_dropouts = False
                 self.lr = 0.001
             else:
-                print("TODO")
+                self.layer_dims = [1, 128, 128, 128]
+                self.hidden_dim = 128
+                self.num_rnn_layers = 1
+                self.use_pools = True
+                self.use_batch_norms = False
+                self.use_dropouts = False
+                self.lr = 0.001
         self.num_conv_layers = len(self.layer_dims) - 1
 
         # Layers

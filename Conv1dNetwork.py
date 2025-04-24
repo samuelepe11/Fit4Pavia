@@ -38,14 +38,22 @@ class Conv1dNetwork(nn.Module):
         else:
             if not is_rehab:
                 self.layer_dims = [self.in_channels, 64, 64, 64, 64, 64]
-                self.hidden_dim = 128
+                self.hidden_dim = 1024
                 self.num_rnn_layers = 1
                 self.use_pools = False
                 self.use_batch_norms = True
                 self.use_dropouts = True
                 self.lr = 0.0001
             else:
-                print("TODO")
+                self.in_channels = 26
+
+                self.layer_dims = [self.in_channels, 128, 128, 128, 128]
+                self.hidden_dim = 512
+                self.num_rnn_layers = 1
+                self.use_pools = True
+                self.use_batch_norms = False
+                self.use_dropouts = False
+                self.lr = 0.0001
             self.output_neurons = num_classes
         self.num_conv_layers = len(self.layer_dims) - 1
         self.avoid_eval = False
@@ -97,8 +105,12 @@ class Conv1dNetwork(nn.Module):
         if "num_conv_layers" not in self.__dict__.keys():
             self.num_conv_layers = len([x for x in self.__dict__.keys() if x.startswith("conv")])
 
-        if avoid_eval or self.avoid_eval:
-            torch.manual_seed(1)
+        try:
+            if avoid_eval or self.avoid_eval:
+                torch.manual_seed(1)
+        except AttributeError:
+            if avoid_eval:
+                torch.manual_seed(1)
 
         target_activation = None
         for i in range(self.num_conv_layers):

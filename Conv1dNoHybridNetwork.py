@@ -83,3 +83,11 @@ class Conv1dNoHybridNetwork:
             y = to_categorical(y, self.output_neurons)
 
         return self.model.evaluate(x, y, verbose=0)
+
+    def build(self, input_shape):
+
+        def build(self, input_shape):
+            self.conv1.build(input_shape)
+            self.pool.build(self.conv1.compute_output_shape(input_shape))
+            self.dense.build(self.pool.compute_output_shape(input_shape))
+            self.built = True

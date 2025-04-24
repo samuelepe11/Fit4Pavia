@@ -56,7 +56,6 @@ class ApproachesComparator:
             for sim in [1, 2]:
                 if attribute_name == stat_name + str(sim):
                     # Verify data normality
-
                     normality = self.verify_normality(attribute_name, attribute_value)
                     norms.append(normality)
 
