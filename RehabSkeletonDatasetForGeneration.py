@@ -47,10 +47,13 @@ class RehabSkeletonDatasetForGeneration(RehabSkeletonDataset):
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
-    desired_classes1 = [1, 2]
+    # desired_classes1 = [1, 2]
     # desired_classes1 = list(range(3, 12))
-    subfolder1 = "correctness_evaluation_for_generation_syn_files_angles_cv"
-    # subfolder1 = "gesture_evaluation_for_generation_syn_files_angles_cv"
+    desired_classes1 = [12, 13]
+    filename1 = "syn_files_train"
+    # subfolder1 = "correctness_evaluation_for_generation_" + filename1
+    # subfolder1 = "gesture_evaluation_for_generation_" + filename1
+    subfolder1 = "position_evaluation_for_generation_" + filename1
 
     # Analyse data of the selected classes
     dataset1 = RehabSkeletonDatasetForGeneration(working_dir=working_dir1, desired_classes=desired_classes1,
@@ -77,6 +80,6 @@ if __name__ == "__main__":
     dataset1 = RehabSkeletonDatasetForGeneration(working_dir=working_dir1, desired_classes=desired_classes1,
                                                  dataset_name=dataset_name1, subfolder=subfolder1,
                                                  maximum_length=maximum_length1,
-                                                 extra_dir="syn_files_angles_cv/")
+                                                 extra_dir=filename1 + "/")
     dataset1.show_statistics()
     dataset1.show_lengths()

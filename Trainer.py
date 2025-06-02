@@ -3,6 +3,7 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import tensorflow as tf
 import dill
 import keras
 import os
@@ -42,7 +43,8 @@ class Trainer:
         self.model_name = None
 
     def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False,
-             return_only_preds=False, return_also_preds=False, is_rehab=False, ext_test_data=None, ext_test_name=None):
+             return_only_preds=False, return_also_preds=False, is_rehab=False, ext_test_data=None, ext_test_name=None,
+             for_generation=False):
         print("The model has not been defined.")
         train_stats = StatsHolder(float("inf"), 0, 0, 0, 0, 0)
         return train_stats
@@ -51,7 +53,7 @@ class Trainer:
         return None, None, None, None
 
     def summarize_performance(self, show_process=False, show_cm=False, assess_calibration=False, avoid_eval=False,
-                              is_rehab=False, ext_test_data_list=None, ext_test_name_list=None):
+                              is_rehab=False, ext_test_data_list=None, ext_test_name_list=None, for_generation=False):
         get_comparable_stat = ext_test_data_list is not None
         if show_cm or assess_calibration or show_process:
             if self.model_name not in os.listdir(self.results_dir):
@@ -59,7 +61,8 @@ class Trainer:
 
         # Show final losses
         train_stats = self.test(set_type=SetType.TRAINING, show_cm=show_cm, assess_calibration=assess_calibration,
-                                avoid_eval=avoid_eval, is_rehab=is_rehab, return_also_preds=get_comparable_stat)
+                                avoid_eval=avoid_eval, is_rehab=is_rehab, return_also_preds=get_comparable_stat,
+                                for_generation=for_generation)
         if get_comparable_stat:
             means = {}
             stds = {}
@@ -81,7 +84,8 @@ class Trainer:
             Trainer.show_calibration_table(train_stats, "training")
 
         test_stats = self.test(set_type=SetType.TEST, show_cm=show_cm, assess_calibration=assess_calibration,
-                               avoid_eval=avoid_eval, is_rehab=is_rehab, return_also_preds=get_comparable_stat)
+                               avoid_eval=avoid_eval, is_rehab=is_rehab, return_also_preds=get_comparable_stat,
+                               for_generation=for_generation)
         if get_comparable_stat:
             test_stats, preds = test_stats
             mean_stats, std_stats, ci_dict, stats_list_dict = self.get_bootstrapped_metrics(preds, class_labels)
@@ -108,7 +112,8 @@ class Trainer:
                 ext_test_name = ext_test_name + "_" if ext_test_name is not None else ""
                 ext_test_stats = self.test(set_type=SetType.EXT_TEST, show_cm=show_cm, assess_calibration=assess_calibration,
                                            avoid_eval=avoid_eval, is_rehab=is_rehab, ext_test_data=ext_test_data,
-                                           ext_test_name=ext_test_name, return_also_preds=get_comparable_stat)
+                                           ext_test_name=ext_test_name, return_also_preds=get_comparable_stat,
+                                           for_generation=for_generation)
                 if get_comparable_stat:
                     ext_test_stats, preds = ext_test_stats
 
@@ -207,7 +212,8 @@ class Trainer:
             return out
 
     @staticmethod
-    def compute_multiclass_confusion_matrix(y_true, y_pred, classes, img_path=None, is_rehab=False):
+    def compute_multiclass_confusion_matrix(y_true, y_pred, classes, img_path=None, is_rehab=False,
+                                            for_generation=False):
         # Compute confusion matrix
         y_true = torch.tensor(y_true, dtype=torch.int64)
         y_pred = torch.tensor(y_pred, dtype=torch.int64)
@@ -215,28 +221,39 @@ class Trainer:
 
         # Draw heatmap
         if img_path is not None:
-            Trainer.draw_multiclass_confusion_matrix(cm, classes, img_path, is_rehab=is_rehab)
+            Trainer.draw_multiclass_confusion_matrix(cm, classes, img_path, is_rehab=is_rehab,
+                                                     for_generation=for_generation)
 
         return cm
 
     @staticmethod
-    def draw_multiclass_confusion_matrix(cm, classes, img_path, is_rehab=False):
+    def draw_multiclass_confusion_matrix(cm, classes, img_path, is_rehab=False, for_generation=False):
         plt.figure(figsize=(8, 8))
         if not is_rehab:
             actions = SkeletonDataset.actions
+            rotation = 45
         else:
-            actions = RehabSkeletonDataset.actions
+            actions = RehabSkeletonDataset.action_labels
+            rotation = 15
+
         labels = [" ".join(actions[c - 1].split(" ")[:3]) for c in classes]
 
         plt.imshow(cm, cmap="Reds")
+        if for_generation:
+            cm = cm / cm.sum(axis=1)[:, np.newaxis]
+        fontsize = "xx-large" if not for_generation or cm.shape[0] == 2 else "large"
+        addon = "" if not for_generation else "%"
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
-                val = cm[i, j]
-                plt.text(j, i, f"{val.item()}", ha="center", va="center", color="black", fontsize="xx-large")
-        plt.xticks(range(len(classes)), labels, rotation=45)
+                val = cm[i, j].item()
+                if for_generation:
+                    val = np.round(val * 100, 2)
+                plt.text(j, i, f"{val}" + addon, ha="center", va="center", color="black", fontsize=fontsize)
+        plt.xticks(range(len(classes)), labels, rotation=rotation)
         plt.xlabel("Predicted class")
-        plt.yticks(range(len(classes)), labels, rotation=45)
-        plt.ylabel("True class")
+        plt.yticks(range(len(classes)), labels, rotation=rotation)
+        y_lab = "True class" if not for_generation else "Conditioning class"
+        plt.ylabel(y_lab)
         plt.savefig(img_path, dpi=300, bbox_inches="tight")
         plt.close()
 
@@ -300,6 +317,7 @@ class Trainer:
                     network_trainer.net = TCNNetwork(network_trainer.num_classes, network_trainer.binary_output)
                     network_trainer.net.compile(keras.optimizers.Adam(learning_rate=0.01), keras.losses.BinaryCrossentropy())
                     x, y = network_trainer.train_data
+                    tf.random.set_seed(1)
                     network_trainer.net.train(x, y, 1, 1)
                     network_trainer.net.model.load_weights(file_path_net)
 
@@ -316,9 +334,12 @@ class Trainer:
                 # Handle previous versions of the NetworkTrainer class (no classes attribute)
                 network_trainer.classes = [8, 9]
 
-            if "num_classes" not in network_trainer.net.__dict__.keys():
-                # Handle previous versions of the Conv1dNetwork class (no num_classes attribute)
-                network_trainer.net.num_classes = 2
+            try:
+                if "num_classes" not in network_trainer.net.__dict__.keys():
+                    # Handle previous versions of the Conv1dNetwork class (no num_classes attribute)
+                    network_trainer.net.num_classes = 2
+            except AttributeError:
+                print()
 
             if (not isinstance(network_trainer.train_data, SkeletonDataset) and
                     "descr_train" not in network_trainer.__dict__.keys()):

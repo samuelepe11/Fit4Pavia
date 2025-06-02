@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     avoid_eval1 = True
     trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1,
-                                   avoid_eval=avoid_eval1, is_rehab=is_rehab1, ext_test_data=None)
+                                   avoid_eval=avoid_eval1, is_rehab=is_rehab1, ext_test_data_list=None)
 
     # Apply SignalGrad-CAM
     def preprocess_fc(signal):

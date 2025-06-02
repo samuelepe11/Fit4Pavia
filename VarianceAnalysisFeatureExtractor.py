@@ -20,15 +20,18 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
     # Define class attributes
     data_processing_fold = "results/data_processing/"
     models_folder = Trainer.results_fold
+    file_name = "variance_analysis_features.csv"
+    simulator_names = ["random_division", "patient_division"]
     feature_names = ["features_normalised_distance", "signals_normalised_cross_correlation", "signals_kl_divergence",
-                     "signals_dtw_distance"]
+                     "signals_dtw_distance", "subj_normalised_distance"]
 
-    def __init__(self, working_dir, feature_input_file, dataset, group_dict=None, is_rehab=False):
-        super().__init__(working_dir, None, dataset, None, False, None,
-                         is_rehab)
+    def __init__(self, working_dir, feature_input_file, subj_input_file, dataset, group_dict=None, is_rehab=False):
+        super().__init__(working_dir, None, dataset, None, False, None, is_rehab)
 
         self.feature_input_file = feature_input_file
+        self.subj_input_file = subj_input_file
         self.features_dataset = None
+        self.subj_dataset = None
         self.dim = None
 
         self.models_dir = working_dir + self.models_folder
@@ -45,6 +48,8 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
         self.features_dataset, self.dim = self.read_feature_file(self.working_dir, self.feature_input_file,
                                                                  only_descriptors=False, group_dict=self.group_dict,
                                                                  is_rehab=self.is_rehab)
+        self.subj_dataset, _ = self.read_feature_file(self.working_dir, self.subj_input_file, only_descriptors=False,
+                                                      group_dict=None, is_rehab=self.is_rehab)
         for selected_feature in self.feature_names:
             self.build_feature_dataset(selected_feature, True)
 
@@ -59,6 +64,11 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                     x2, _ = self.dataset.__getitem__(j)
                     x1, _, _ = self.normalize_data(x1)
                     x2, _, _ = self.normalize_data(x2)
+                elif "subj" in selected_feature:
+                    s1 = int(self.descr[i][9:12]) - 1
+                    x1 = self.subj_dataset[s1, 1:]
+                    s2 = int(self.descr[j][9:12]) - 1
+                    x2 = self.subj_dataset[s2, 1:]
                 else:
                     x1 = self.features_dataset[i, :-1]
                     x2 = self.features_dataset[j, :-1]
@@ -74,7 +84,7 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
 
     def extract_features(self, x, selected_feature=None):
         x1, x2 = x
-        if selected_feature == "features_normalised_distance":
+        if selected_feature == "features_normalised_distance" or selected_feature == "subj_normalised_distance":
             feature_list = np.abs((x1 - x2) / (x1 + x2 + 1e-10))
         elif selected_feature == "signals_dtw_distance":
             feature_list = [dtw.lb_keogh(x1[:, i], x2[:, i]) for i in range(x1.shape[1])]
@@ -96,45 +106,44 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
 
     def aggregate_item_features(self, folder_name, use_keras=False, avoid_eval=False):
         # Read distance files
+        simulator_names = self.simulator_names
         if self.distances is None:
-            self.distances = {selected_feature: FeatureExtractor.read_feature_file(working_dir=working_dir1,
+            self.distances = {selected_feature: FeatureExtractor.read_feature_file(working_dir=self.working_dir,
                                                                                    feature_file=selected_feature,
                                                                                    group_dict=None,
-                                                                                   is_rehab=is_rehab1,
+                                                                                   is_rehab=self.is_rehab,
                                                                                    variance_analysis_class_n=self.n_classes)[0]
                               for selected_feature in self.feature_names}
-            self.descriptors = {selected_feature: list(FeatureExtractor.read_feature_file(working_dir=working_dir1,
+            self.descriptors = {selected_feature: list(FeatureExtractor.read_feature_file(working_dir=self.working_dir,
                                                                                           feature_file=selected_feature,
                                                                                           group_dict=None,
                                                                                           only_descriptors=True,
-                                                                                          is_rehab=is_rehab1,
+                                                                                          is_rehab=self.is_rehab,
                                                                                           variance_analysis_class_n=
                                                                                           self.n_classes)[0])
                                 for selected_feature in self.feature_names}
 
         model_path = self.models_dir + folder_name
-        file_name = "variance_analysis_features.csv"
-        simulator_names = ["random_division", "patient_division"]
-        if file_name in os.listdir(model_path):
+        if self.file_name in os.listdir(model_path):
             mode = "a"
-            df = pd.read_csv(model_path + "/" + file_name, delimiter=";")
+            df = pd.read_csv(model_path + "/" + self.file_name, delimiter=";")
             if df[" is_cs"].any():
                 simulator_names = ["patient_division"]
             simul_ids = np.unique(df[" simul_id"])
             max_id = np.max(simul_ids) if len(simul_ids) > 0 else None
             df = df[df[" simul_id"] != max_id]
-            df.to_csv(model_path + "/" + file_name, index=False, sep=";", encoding="utf-8")
+            df.to_csv(model_path + "/" + self.file_name, index=False, sep=";", encoding="utf-8")
         else:
             mode = "w"
             max_id = None
-        with open(model_path + "/" + file_name, mode) as f:
+        with (open(model_path + "/" + self.file_name, mode) as f):
             print("Processing features for " + folder_name + "...")
 
             if mode == "w":
                 # Write header
                 f.write("item_name; simul_id; subj_id; dim_train; dim_test; is_cs; train_acc; test_acc; train_f1; test_f1; "
-                        "avg_feature_dist; avg_cross_corr; avg_kl_dist; avg_dtw_dist; is_train_subj; is_test_subj; "
-                        "pred_class; true_class; pred_confidence; is_pred_correct; item_loss\n")
+                        "avg_subj_dist; avg_feature_dist; avg_cross_corr; avg_kl_dist; avg_dtw_dist; is_train_subj; "
+                        "is_test_subj; pred_class; true_class; pred_confidence; is_pred_correct; item_loss\n")
 
             if self.n_classes == 2:
                 simulator_names = ["sit_" + s for s in simulator_names]
@@ -152,7 +161,9 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
 
                 fold = model_path + "/" + simulator_name
                 n = len(os.listdir(fold))
-                n_trials = n if simulator.model_type != NetType.TCN else n // 2
+                n_trials = n
+                if hasattr(simulator, "model_type") and simulator.model_type == NetType.TCN:
+                    n_trials = n // 2
                 for simul_id in range(n_trials):
                     if max_id is not None:
                         if simul_id < max_id:
@@ -184,9 +195,9 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
 
                     # Get predictions
                     train_y_true, train_y_pred, train_y_prob = trainer.test(set_type=SetType.TRAINING,
-                                                                            avoid_eval=avoid_eval, return_preds=True)
+                                                                            avoid_eval=avoid_eval, return_only_preds=True)
                     test_y_true, test_y_pred, test_y_prob = trainer.test(set_type=SetType.TEST, avoid_eval=avoid_eval,
-                                                                         return_preds=True)
+                                                                         return_only_preds=True)
                     y_true = np.concatenate([train_y_true, test_y_true], 0)
                     y_pred = np.concatenate([train_y_pred, test_y_pred], 0)
                     y_prob = np.concatenate([train_y_prob, test_y_prob], 0)
@@ -206,11 +217,14 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                         item_distances = {selected_feature: self.get_item_distances(selected_feature, item_name)
                                           for selected_feature in self.feature_names}
 
+                        subj_dist = []
                         feat_dist = []
                         cc_dist = []
                         kl_dist = []
                         dtw_dist = []
                         for train_item_name in train_files:
+                            subj_dist.append(self.get_distance(item_distances, "subj_normalised_distance",
+                                                               train_item_name))
                             feat_dist.append(self.get_distance(item_distances, "features_normalised_distance",
                                                                train_item_name))
                             cc_dist.append(self.get_distance(item_distances,
@@ -220,6 +234,7 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                                                              train_item_name))
                             dtw_dist.append(self.get_distance(item_distances, "signals_dtw_distance",
                                                               train_item_name))
+                        avg_subj_dist = np.nanmean(subj_dist)
                         avg_feature_dist = np.nanmean(feat_dist)
                         avg_cross_corr = np.nanmean(cc_dist)
                         avg_kl_dist = np.nanmean(kl_dist)
@@ -228,8 +243,8 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                         is_train_subj = int(item_name[9:12]) in SkeletonDataset.get_patient_ids(train_files)
                         is_test_subj = int(item_name[9:12]) in SkeletonDataset.get_patient_ids(test_files)
                         strings = [item_name, simul_id, subj_id, dim_train, dim_test, is_cs, train_acc, test_acc,
-                                   train_f1, test_f1, avg_feature_dist, avg_cross_corr, avg_kl_dist, avg_dtw_dist,
-                                   is_train_subj, is_test_subj, pred_class, true_class, pred_confidence,
+                                   train_f1, test_f1, avg_subj_dist, avg_feature_dist, avg_cross_corr, avg_kl_dist,
+                                   avg_dtw_dist, is_train_subj, is_test_subj, pred_class, true_class, pred_confidence,
                                    is_pred_correct, item_loss]
                         f.write(";".join(map(str, strings)) + "\n")
                     print(" - " + file + " loaded")
@@ -244,6 +259,78 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
         j = self.descriptors[feature_name].index(item_name)
         return item_distance[j]
 
+    def complement_with_subj_info(self, folder_name, use_keras=False):
+        # Read distance files
+        if self.distances is None:
+            self.distances = {selected_feature: FeatureExtractor.read_feature_file(working_dir=self.working_dir,
+                                                                                   feature_file="subj_normalised_distance",
+                                                                                   group_dict=None,
+                                                                                   is_rehab=self.is_rehab,
+                                                                                   variance_analysis_class_n=self.n_classes)[0]
+                              for selected_feature in self.feature_names}
+            self.descriptors = {selected_feature: list(FeatureExtractor.read_feature_file(working_dir=self.working_dir,
+                                                                                          feature_file="subj_normalised_distance",
+                                                                                          group_dict=None,
+                                                                                          only_descriptors=True,
+                                                                                          is_rehab=self.is_rehab,
+                                                                                          variance_analysis_class_n=
+                                                                                          self.n_classes)[0])
+                                for selected_feature in self.feature_names}
+
+        model_path = self.models_dir + folder_name
+        avg_subj_dist = []
+        for simulator_name in self.simulator_names:
+            print(" " + simulator_name.replace("_", " ", ).upper())
+            # Load simulator
+            try:
+                simulator = Simulator.load_simulator(self.working_dir, folder_name, simulator_name,
+                                                     is_rehab=is_rehab1)
+            # Handle previous versions of the Simulator class (no is_rehab attribute)
+            except AttributeError:
+                simulator = Simulator.load_simulator(self.working_dir, folder_name, simulator_name)
+
+            fold = model_path + "/" + simulator_name
+            n = len(os.listdir(fold))
+            n_trials = n
+            if hasattr(simulator, "model_type") and simulator.model_type == NetType.TCN:
+                n_trials = n // 2
+            for simul_id in range(n_trials):
+                # Load trainer
+                file = "trial_" + str(simul_id)
+                try:
+                    trainer = Trainer.load_model(self.working_dir, folder_name, simulator_name + "/" + file,
+                                                 use_keras, is_rehab=self.is_rehab,
+                                                 feature_file=self.feature_input_file)
+                # Handle previous versions of the PatientDivisionSimulator class (no use_keras or is_rehab attribute)
+                except AttributeError:
+                    trainer = Trainer.load_model(self.working_dir, folder_name, simulator_name + "/" + file)
+
+                try:
+                    train_files = [file.strip(SkeletonDataset.extension) for file in trainer.train_data.data_files]
+                    test_files = [file.strip(SkeletonDataset.extension) for file in trainer.test_data.data_files]
+                except:
+                    train_files = [file.strip(SkeletonDataset.extension) for file in trainer.descr_train]
+                    test_files = [file.strip(SkeletonDataset.extension) for file in trainer.descr_test]
+
+                # Characterize each item
+                all_list = train_files + test_files
+                for ind in range(len(all_list)):
+                    item_name = all_list[ind]
+                    subj_distance = {"subj_normalised_distance": self.get_item_distances("subj_normalised_distance",
+                                                                                         item_name)}
+
+                    subj_dist = []
+                    for train_item_name in train_files:
+                        subj_dist.append(self.get_distance(subj_distance, "subj_normalised_distance",
+                                                           train_item_name))
+                    avg_subj_dist.append(np.nanmean(subj_dist))
+                print(" - Subject features for " + file + " loaded")
+
+        file_path = model_path + "/" + self.file_name
+        df = pd.read_csv(file_path, delimiter=";")
+        df.insert(loc=10, column="avg_subj_dist", value=avg_subj_dist)
+        df.to_csv(file_path, sep=";", index=False)
+
     @staticmethod
     def get_probability_distribution(x, bins=100):
         hist, bin_edges = np.histogram(x, bins=bins, density=True)
@@ -253,14 +340,15 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
 # Main
 if __name__ == "__main__":
     # Define variables
-    working_dir1 = "./../"
+    # working_dir1 = "./../"
     working_dir1 = "D:/Fit4Pavia/read_ntu_rgbd/"
     desired_classes1 = [8, 9]  # NTU HAR binary
-    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
     # desired_classes1 = [1, 2]  # IntelliRehabDS correctness
 
     feature_file1 = "hand_crafted_features_global.csv"
-    # feature_file1 = "hand_crafted_features_global_15classes.csv"
+    feature_file1 = "hand_crafted_features_global_15classes.csv"
+    subj_file1 = "subject_features.csv"
     is_rehab1 = False
     group_dict1 = {"C": 2, "R": 2} if not is_rehab1 else 200
 
@@ -270,7 +358,7 @@ if __name__ == "__main__":
     #                                 maximum_length=group_dict1)
 
     # Build signal-level feature dataset
-    feature_extractor1 = VarianceAnalysisFeatureExtractor(working_dir1, feature_file1, dataset1, group_dict1,
+    feature_extractor1 = VarianceAnalysisFeatureExtractor(working_dir1, feature_file1, subj_file1, dataset1, group_dict1,
                                                           is_rehab=False)
     # feature_extractor1.build_feature_datasets()
 
@@ -281,7 +369,18 @@ if __name__ == "__main__":
     #                                                                  variance_analysis_class_n=len(desired_classes1))
 
     # Build item-level features and store dataset
-    folder_name1 = "patientVSrandom_division_tcn"
-    use_keras1 = True
+    folder_name1 = "patientVSrandom_division_knn_15classes"
+    use_keras1 = False
     avoid_eval1 = False
-    feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
+    # feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
+
+    # Complement with inter subject distances
+    feature_extractor1.complement_with_subj_info(folder_name1, use_keras=use_keras1)
+
+
+
+    feature_extractor1.complement_with_subj_info("patientVSrandom_division_svm_15classes", use_keras=use_keras1)
+    feature_extractor1.complement_with_subj_info("patientVSrandom_division_rf_15classes", use_keras=use_keras1)
+    feature_extractor1.complement_with_subj_info("patientVSrandom_division_ada_15classes", use_keras=use_keras1)
+    feature_extractor1.complement_with_subj_info("patientVSrandom_division_mlp_15classes", use_keras=use_keras1)
+

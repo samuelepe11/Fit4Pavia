@@ -156,6 +156,7 @@ class SkeletonDataset(Dataset):
 
         self.is_rehab_data = is_rehab_data
         self.is_correctness_label = None
+        self.is_position_label = None
 
     def __getitem__(self, ind):
         x = self.data[ind]["skel_body0"]
@@ -180,7 +181,7 @@ class SkeletonDataset(Dataset):
             class_key = "A"
             pt_key = "P"
         else:
-            class_key = 4 if self.is_correctness_label else 2
+            class_key = 4 if self.is_correctness_label else 2 if not self.is_position_label else 5
             pt_key = 0
         for c in self.classes:
             action = self.actions[c - 1]
@@ -189,8 +190,9 @@ class SkeletonDataset(Dataset):
             if action not in os.listdir(self.results_dir):
                 os.mkdir(self.results_dir + action)
 
-            # Number of elements belonging to the given class
-            class_elements = self.find_elements(elements=self.data_files, group_dict={class_key: c})
+            # Number of elements belonging to the given
+            class_values = c if not self.is_position_label else self.actions[c - 1]
+            class_elements = self.find_elements(elements=self.data_files, group_dict={class_key: class_values})
             n_elements = len(class_elements)
             class_counts.append(n_elements)
             print("Items of class '" + action + "': " + str(n_elements))

@@ -2,7 +2,7 @@
 import os
 
 import numpy as np
-from scipy.stats import hmean, median_abs_deviation, iqr, skew, kurtosis
+from scipy.stats import hmean, median_abs_deviation, iqr, skew, kurtosis, mode
 
 from SkeletonDataset import SkeletonDataset
 from RehabSkeletonDataset import RehabSkeletonDataset
@@ -17,6 +17,10 @@ class FeatureExtractor:
     feature_names = ["mean", "absolute_harmonic_mean", "std", "max", "min", "range", "median", "median_absolute_dev",
                      "iq_range", "sum_of_area", "mean_energy", "skewness", "kurtosis", "pearson_corr_coeff",
                      "mean_velocity"]
+    bone_extremities = {"homerus_l": (4, 5), "homerus_r": (8, 9), "radius_l": (5, 6), "radius_r": (9, 10),
+                        "femur_l": (12, 13), "femur_r": (16, 17), "tibia_l": (13, 14), "tibia_r": (17, 18),
+                        "foot_l": (14, 15), "foot_r": (18, 19), "abdomen": (0, 1), "chest": (1, 20), "neck": (20, 2),
+                        "head": (2, 3), "transverse_chest": (4, 8)}
 
     def __init__(self, working_dir, feature_file, dataset, n_windows, include_l2=True, selected_features=None,
                  is_rehab=False):
@@ -174,6 +178,137 @@ class FeatureExtractor:
 
         return features
 
+    def compute_subj_features(self, subj_filename, group_dict=None):
+        features_dataset, dim = self.read_feature_file(self.working_dir, self.feature_file, only_descriptors=False,
+                                                       is_rehab=self.is_rehab)
+        descr, _ = self.read_feature_file(self.working_dir, self.feature_file, only_descriptors=True,
+                                          is_rehab=self.is_rehab)
+
+        selected_descr = [d for d in descr if int(d[-3:]) in self.dataset.classes]
+        if group_dict is not None:
+            selected_descr = SkeletonDataset.find_elements(selected_descr, group_dict)
+        features_dataset = [feat for i, feat in enumerate(features_dataset) if descr[i] in selected_descr]
+        dim = len(features_dataset)
+        descr = selected_descr
+
+        temp_feats = []
+        for i, row in enumerate(features_dataset):
+            # Compute body characteristics
+            hip_c = np.mean(row[0:3])
+            hip_l = np.mean(row[108:111])
+            hip_r = np.mean(row[144:147])
+            hip_joints = [hip_c, hip_l, hip_r]
+
+            knee_l = np.mean(row[117:120])
+            knee_r = np.mean(row[153:156])
+            ankle_l = np.mean(row[126:129])
+            ankle_r = np.mean(row[162:165])
+            foot_l = np.mean(row[135:138])
+            foot_r = np.mean(row[171:174])
+            lower_body_joints = [knee_l, knee_r, ankle_l, ankle_r, foot_l, foot_r]
+
+            mean_lengths = {}
+            skel_data = self.dataset.__getitem__(i)[0]
+            for bone, (j1, j2) in self.bone_extremities.items():
+                j1_indices = [3 * j1, 3 * j1 + 1, 3 * j1 + 2]
+                j2_indices = [3 * j2, 3 * j2 + 1, 3 * j2 + 2]
+                diffs = skel_data[:, j2_indices] - skel_data[:, j1_indices]
+                lengths = np.linalg.norm(diffs, axis=1)
+                mean_lengths[bone] = np.mean(lengths) * 100
+            homerus = np.mean([mean_lengths["homerus_l"], mean_lengths["homerus_r"]])
+            radius = np.mean([mean_lengths["radius_l"], mean_lengths["radius_r"]])
+            femur = np.mean([mean_lengths["femur_l"], mean_lengths["femur_r"]])
+            tibia = np.mean([mean_lengths["tibia_l"], mean_lengths["tibia_r"]])
+            stature_h = 4.62 * homerus + 19.0
+            stature_r = 3.78 * radius + 74.7
+            stature_f = 2.71 * femur + 45.86
+            stature_t = 3.29 * tibia + 47.34
+
+            foot = np.mean([mean_lengths["foot_l"], mean_lengths["foot_r"]])
+            stature_bone_chain = (foot + tibia + femur + mean_lengths["abdomen"] + mean_lengths["chest"] +
+                                  mean_lengths["neck"] + mean_lengths["head"])
+            statures_all = [stature_h, stature_r, stature_f, stature_t, stature_bone_chain]
+
+            temp_feats.append([descr[i], hip_joints, lower_body_joints, statures_all, mean_lengths["transverse_chest"]])
+
+        # Set data for hip and lower body joints distributions adjustment
+        hips = [hip for _, hip, _, _, _ in temp_feats]
+        m_hip = np.mean(hips, axis=0)
+        s_hip = np.std(hips, axis=0)
+        population_m_hip = [(0.9918 + 1.1906) / 2, (0.9738 + 1.1673) / 2, (0.9724 + 1.1754) / 2]
+        population_s_hip = np.sqrt([(0.1154 ** 2 + 0.1489 ** 2) / 2 + (0.9918 - 1.1906) ** 2 / 4,
+                                    (0.1172 ** 2 + 0.1529 ** 2) / 2 + (0.9738 - 1.1673) ** 2 / 4,
+                                    (0.1155 ** 2 + 0.1481 ** 2) / 2 + (0.9724 - 1.1754) ** 2 / 4])
+
+        lbs = [lb for _, _, lb, _, _ in temp_feats]
+        m_lb = np.mean(lbs, axis=0)
+        s_lb = np.std(lbs, axis=0)
+        population_m_lb = [(0.8130 + 1.0458) / 2, (0.8486 + 1.0804) / 2, (0.7400 + 0.9787) / 2,
+                           (0.7607 + 1.0120) / 2, (0.7054 + 0.9499) / 2, (0.7217 + 0.9827) / 2]
+        population_s_lb = np.sqrt([(0.1415 ** 2 + 0.1602 ** 2) / 2 + (0.8130 - 1.0458) ** 2 / 4,
+                                   (0.1160 ** 2 + 0.1576 ** 2) / 2 + (0.8486 - 1.0804) ** 2 / 4,
+                                   (0.1224 ** 2 + 0.1615 ** 2) / 2 + (0.7400 - 0.9787) ** 2 / 4,
+                                   (0.1172 ** 2 + 0.1733 ** 2) / 2 + (0.7607 - 1.0120) ** 2 / 4,
+                                   (0.1240 ** 2 + 0.1616 ** 2) / 2 + (0.7054 - 0.9499) ** 2 / 4,
+                                   (0.1180 ** 2 + 0.1751 ** 2) / 2 + (0.7217 - 0.9827) ** 2 / 4])
+
+        # Infer gender
+        pooled_gender_list = []
+        for _, hip, lb, _, _ in temp_feats:
+            # Infer gender
+            hip = (hip - m_hip) / s_hip * population_s_hip + population_m_hip
+            hip = np.mean(hip)
+            lb = (lb - m_lb) / s_lb * population_s_lb + population_m_lb
+            lower_body = np.mean(lb)
+            p_female = 1 / (1 + np.exp(66.2 * hip - 75.0 * lower_body - 4.41))
+            gender = int(p_female >= 0.5)
+            pooled_gender_list.append(gender)
+
+        subj_gender_list = []
+        for subj in self.dataset.list_pat:
+            subj_items = SkeletonDataset.find_elements(descr, {"P": subj})
+            subj_genders = np.array([pooled_gender_list[i] for i in range(dim) if descr[i] in subj_items])
+            subj_gender_list.append(int(mode(subj_genders).mode))
+
+        subj_feat_rows = []
+        for descr_i, _, _, statures_all, transverse_chest_width in temp_feats:
+            # Retrieve gender
+            subj_ind = int(descr_i[9:12]) - 1
+            gender = subj_gender_list[subj_ind]
+
+            # Infer stature
+            stature_threshold = 150 if gender else 160
+            statures = [s for s in statures_all if s > stature_threshold]
+            statures = statures if len(statures) > 0 else statures_all
+            stature = np.mean(statures)
+
+            # Infer weight
+            if gender:
+                weight_hv = 0.5 * stature - 30.563
+                weight_tcb = 3.407 * transverse_chest_width - 35.686
+                weight_threshold = 45
+            else:
+                weight_hv = 0.665 * stature - 54.477
+                weight_tcb = 2.489 * transverse_chest_width - 9.742
+                weight_threshold = 55
+            weights_all = [weight_hv, weight_tcb]
+            weights = [w for w in weights_all if w > weight_threshold]
+            weights = weights if len(weights) > 0 else weights_all
+            weight = np.mean(weights)
+
+            subj_feat_rows.append([stature, weight])
+
+        # Average features across different items
+        all_subj_feats = []
+        for subj in self.dataset.list_pat:
+            subj_items = SkeletonDataset.find_elements(descr, {"P": subj})
+            subj_feats = np.array([subj_feat_rows[i] for i in range(dim) if descr[i] in subj_items])
+            all_subj_feats.append([subj, subj_gender_list[subj - 1]] + list(np.mean(subj_feats[:, 0:], axis=0)))
+        self.file_headers = ";".join(["subj_id", "gender", "stature", "weight"])
+        data = np.array(all_subj_feats)
+        self.store_dataset(data, None, subj_filename)
+        print("Subject features stored:", data.shape)
+
     def remove_nan(self):
         # Remove rows with NaN elements
         items = np.array_split(self.raw_data, self.raw_data.shape[0], axis=0)
@@ -203,8 +338,9 @@ class FeatureExtractor:
         np.savetxt(path, data, delimiter=";", header=headers)
 
         # Store descriptors
-        path = dir_path + "descr_" + filename
-        np.savetxt(path, descr, delimiter=";", fmt="%s")
+        if descr is not None:
+            path = dir_path + "descr_" + filename
+            np.savetxt(path, descr, delimiter=";", fmt="%s")
 
     @staticmethod
     def load_data_matrix(working_dir, file_path, dtype="float", show_shape=False):
@@ -251,6 +387,9 @@ class FeatureExtractor:
             data_matrix = data_matrix[ind, :]
             dim = data_matrix.shape[0]
 
+            if only_descriptors:
+                return elements, dim
+
         return data_matrix, dim
 
     @staticmethod
@@ -294,33 +433,37 @@ class FeatureExtractor:
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
-    # desired_classes1 = [8, 9] # NTU HAR binary
-    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99] # NTU HAR multiclass
-    desired_classes1 = [1, 2]  # IntelliRehabDS correctness
+    # desired_classes1 = [8, 9]  # NTU HAR binary
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
+    # desired_classes1 = [1, 2]  # IntelliRehabDS correctness
     # desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
 
-    feature_file1 = "hand_crafted_features_global.csv"
-    # feature_file1 = "hand_crafted_features_global_15classes.csv"
+    # feature_file1 = "hand_crafted_features_global.csv"
+    feature_file1 = "hand_crafted_features_global_15classes.csv"
     n_windows1 = 1
     include_l21 = False
     # selected_features1 = ["mean", "std", "mean_velocity"]
     selected_features1 = None
-    is_rehab1 = True
+    is_rehab1 = False
     group_dict1 = {"C": 2, "R": 2} if not is_rehab1 else None
 
     # Define dataset instance
-    # dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1)
-    dataset1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, maximum_length=200)
+    dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, group_dict=group_dict1)
+    # dataset1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, maximum_length=200)
 
     # Build feature dataset
     feature_extractor1 = FeatureExtractor(working_dir=working_dir1, feature_file=feature_file1, dataset=dataset1,
                                           n_windows=n_windows1, include_l2=include_l21,
                                           selected_features=selected_features1, is_rehab=is_rehab1)
-    feature_extractor1.build_feature_dataset()
+    # feature_extractor1.build_feature_dataset()
 
     # Preprocess dataset
-    feature_extractor1.remove_nan()
+    # feature_extractor1.remove_nan()
 
     # Load data
-    data1, dim1 = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=feature_file1,
-                                                     group_dict=group_dict1, is_rehab=is_rehab1)
+    # data1, dim1 = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=feature_file1,
+    #                                                  group_dict=group_dict1, is_rehab=is_rehab1)
+
+    # Build subject-specific feature dataset
+    subj_filename1 = "subject_features.csv"
+    feature_extractor1.compute_subj_features(subj_filename1, group_dict1)

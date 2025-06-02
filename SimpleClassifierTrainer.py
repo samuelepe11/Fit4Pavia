@@ -109,7 +109,8 @@ class SimpleClassifierTrainer(Trainer):
         SimpleClassifierTrainer.save_model(self, filename, use_keras=False)
 
     def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False,
-             return_preds=False):
+             return_only_preds=False, return_also_preds=False, is_rehab=False, ext_test_data=None, ext_test_name=None,
+             for_generation=False):
         if set_type == SetType.TRAINING:
             data = self.train_data
         else:
@@ -134,7 +135,7 @@ class SimpleClassifierTrainer(Trainer):
         # Store values for Confusion Matrix calculation
         y_true = y
         y_pred = prediction
-        if return_preds:
+        if return_only_preds:
             try:
                 y_prob = self.model.predict_proba(x)
             except AttributeError:

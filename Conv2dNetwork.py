@@ -7,9 +7,9 @@ from Conv1dNetwork import Conv1dNetwork
 # Class
 class Conv2dNetwork(Conv1dNetwork):
 
-    def __init__(self, num_classes=2, binary_output=False, is_rehab=False):
+    def __init__(self, num_classes=2, binary_output=False, is_rehab=False, is_position=False, only_ll=False):
         super(Conv2dNetwork, self).__init__(num_classes=num_classes, is_2d=True, binary_output=binary_output,
-                                            is_rehab=is_rehab)
+                                            is_rehab=is_rehab, is_position=is_position, only_ll=only_ll)
 
         # Define attributes
         if self.num_classes == 2:
@@ -22,13 +22,22 @@ class Conv2dNetwork(Conv1dNetwork):
                 self.use_dropouts = False
                 self.lr = 0.01
             else:
-                self.layer_dims = [1, 128, 128, 128]
-                self.hidden_dim = 128
-                self.num_rnn_layers = 1
-                self.use_pools = False
-                self.use_batch_norms = False
-                self.use_dropouts = False
-                self.lr = 0.00005
+                if not is_position:
+                    self.layer_dims = [1, 128, 128, 128]
+                    self.hidden_dim = 128
+                    self.num_rnn_layers = 1
+                    self.use_pools = False
+                    self.use_batch_norms = False
+                    self.use_dropouts = False
+                    self.lr = 0.00005
+                else:
+                    self.layer_dims = [1, 128, 128, 128]
+                    self.hidden_dim = 128
+                    self.num_rnn_layers = 1
+                    self.use_pools = False
+                    self.use_batch_norms = False
+                    self.use_dropouts = False
+                    self.lr = 0.001
         else:
             if not is_rehab:
                 self.layer_dims = [1, 64, 64, 64]

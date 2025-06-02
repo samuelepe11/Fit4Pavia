@@ -45,7 +45,7 @@ class NetworkTrainer(Trainer):
 
     def __init__(self, net_type, working_dir, folder_name, train_data, test_data, epochs, lr,
                  batch_size=default_batch_size, binary_output=False, normalize_input=False, use_cuda=True,
-                 is_rehab=False):
+                 is_rehab=False, is_position=False, only_ll=False):
         super().__init__(working_dir, folder_name, train_data, test_data, is_rehab)
 
         # Initialize attributes
@@ -75,9 +75,11 @@ class NetworkTrainer(Trainer):
         elif net_type == NetType.GRU:
             self.net = GRUNetwork(num_classes=self.num_classes, is_rehab=is_rehab)
         elif net_type == NetType.CONV1D:
-            self.net = Conv1dNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab)
+            self.net = Conv1dNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab,
+                                     is_position=is_position, only_ll=only_ll)
         elif net_type == NetType.CONV2D:
-            self.net = Conv2dNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab)
+            self.net = Conv2dNetwork(num_classes=self.num_classes, binary_output=binary_output, is_rehab=is_rehab,
+                                     is_position=is_position, only_ll=only_ll)
         elif net_type == NetType.RNN:
             self.net = RNNetwork(num_classes=self.num_classes, is_rehab=is_rehab)
         elif net_type == NetType.TRANS:
@@ -212,7 +214,8 @@ class NetworkTrainer(Trainer):
             print("Execution time:", round(duration / 60, 4), "min")
 
     def test(self, set_type=SetType.TRAINING, show_cm=False, avoid_eval=False, assess_calibration=False,
-             return_only_preds=False, return_also_preds=False, is_rehab=False, ext_test_data=None, ext_test_name=None):
+             return_only_preds=False, return_also_preds=False, is_rehab=False, ext_test_data=None, ext_test_name=None,
+             for_generation=False):
         if self.use_cuda:
             net = NetworkTrainer.set_cuda(self.net)
             self.criterion = self.criterion.cuda()
@@ -324,7 +327,8 @@ class NetworkTrainer(Trainer):
         else:
             img_path = None
         self.__dict__[cm_name] = Trainer.compute_multiclass_confusion_matrix(y_true, y_pred, class_labels, img_path,
-                                                                             is_rehab=is_rehab)
+                                                                             is_rehab=is_rehab,
+                                                                             for_generation=for_generation)
 
         if not return_also_preds:
             return stats_holder
@@ -346,7 +350,10 @@ class NetworkTrainer(Trainer):
         y_true = torch.tensor(y_true, dtype=torch.long)
         if loss is None:
             if y_prob is not None:
-                loss = self.criterion(y_prob, y_pred)
+                try:
+                    loss = self.criterion(y_prob, y_pred)
+                except ValueError:
+                    loss = self.criterion(y_true.float(), y_pred.float())
                 loss = loss.item()
             else:
                 loss = None
@@ -468,6 +475,7 @@ if __name__ == "__main__":
     # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
     # desired_classes1 = [1, 2]  # IntelliRehabDS correctness
     desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
+    desired_classes1 = [12, 13]  # IntelliRehabDS position
 
     # Define the data
     train_perc = 0.7
@@ -486,36 +494,40 @@ if __name__ == "__main__":
                                                    data_names=train_data1.remaining_instances,
                                                    extra_dir="real_files_angles/")
     syn_test_name_list1 = ["cs_v2", "cs_v2_pos", "cv_v3", "cv_v3_pos"]
+    addon = "angles"
+    # addon = "joints"
     syn_test_data_list1 = [RehabSkeletonDatasetForGeneration(working_dir=working_dir1, desired_classes=desired_classes1,
-                                                             extra_dir="syn_files_angles_" + name + "/")
+                                                             extra_dir="syn_files_" + addon + "_" + name + "/")
                            for name in syn_test_name_list1]
 
     # Define the model
     folder_name1 = "models_for_generation"
-    model_name1 = "conv2d_angles"
-    net_type1 = NetType.BLSTM
+    model_name1 = "conv2d_sit_stand_angles_lowlimb"
+    net_type1 = NetType.CONV2D
     binary_output1 = False
     normalize_input1 = True
     # lr1 = 0.01  # Every binary or Multiclass Conv2DNoHybrid
     # lr1 = 0.001  # Multiclass Conv2D or Conv1DNoHybrid or TCN or LSTMs
     # lr1 = 0.0001  # Multiclass Conv1D
     lr1 = None
-    epochs1 = 300
+    epochs1 = 100
     use_cuda1 = False
     show_cm1 = True
     assess_calibration1 = True
     is_rehab1 = True
+    is_position1 = True
+    only_ll1 = True
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
                               train_data=train_data1, test_data=test_data1, epochs=epochs1, lr=lr1,
                               binary_output=binary_output1, normalize_input=normalize_input1, use_cuda=use_cuda1,
-                              is_rehab=is_rehab1)
+                              is_rehab=is_rehab1, is_position=is_position1, only_ll=only_ll1)
 
     # Train the model
     batch_size1 = None
-    # trainer1.summarize_performance()
-    # trainer1.train(model_name1, show_epochs=True, is_rehab=is_rehab1, batch_size=batch_size1)
-    # trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1,
-    #                                is_rehab=is_rehab1)
+    '''trainer1.summarize_performance()
+    trainer1.train(model_name1, show_epochs=True, is_rehab=is_rehab1, batch_size=batch_size1)
+    trainer1.summarize_performance(show_process=True, show_cm=show_cm1, assess_calibration=assess_calibration1,
+                                   is_rehab=is_rehab1)'''
 
     # Load trained model
     use_keras1 = False
@@ -526,54 +538,58 @@ if __name__ == "__main__":
     compare_output = trainer1.summarize_performance(show_process=True, show_cm=show_cm1,
                                                     assess_calibration=assess_calibration1, avoid_eval=avoid_eval1,
                                                     is_rehab=is_rehab1, ext_test_data_list=syn_test_data_list1,
-                                                    ext_test_name_list=syn_test_name_list1)
+                                                    ext_test_name_list=syn_test_name_list1, for_generation=True)
 
     # Store model in a portable way
     # trainer1.save_portable_model(use_keras=use_keras1)
 
     # Compare performances of the model in different datasets
     print("\n=======================================================================================================\n")
-    compare_metric = "acc"
-    compare_alpha = 0.05
-    compare_couples = [("train", "test"), ("train", "cs_v2"), ("train", "cs_v2_pos"), ("train", "cv_v3"),
-                       ("train", "cv_v3_pos"), ("cs_v2", "cs_v2_pos"), ("cv_v3", "cv_v3_pos"), ("cs_v2", "cv_v3"),
-                       ("cs_v2_pos", "cv_v3_pos")]
-    if compare_output is not None:
-        for couple in compare_couples:
-            means, stds, cis, stats = compare_output
+    compare_performances = True
+    if compare_performances:
+        compare_metric = "acc"
+        compare_alpha = 0.05
+        compare_couples = [("train", "test"), ("train", "cs_v2"), ("train", "cs_v2_pos"), ("train", "cv_v3"),
+                           ("train", "cv_v3_pos"), ("cs_v2", "cs_v2_pos"), ("cv_v3", "cv_v3_pos"), ("cs_v2", "cv_v3"),
+                           ("cs_v2_pos", "cv_v3_pos")]
+        if compare_output is not None:
+            for couple in compare_couples:
+                means, stds, cis, stats = compare_output
 
-            # Show values
-            name1 = couple[0]
-            name2 = couple[1]
-            print("Performance comparison:")
-            print(" - " + name1.upper() + " = " + str(np.round(getattr(means[name1], compare_metric) * 100, 2))
-                  + "%  >  " + "[{:.4f}%, {:.4f}%]".format(*cis[name1][compare_metric]))
-            print(" - " + name2.upper() + " = " + str(np.round(getattr(means[name2], compare_metric) * 100, 2))
-                  + "%  >  " + "[{:.4f}%, {:.4f}%]".format(*cis[name2][compare_metric]))
+                # Show values
+                name1 = couple[0]
+                name2 = couple[1]
+                print("Performance comparison:")
+                print(" - " + name1.upper() + " = " + str(np.round(getattr(means[name1], compare_metric) * 100, 2))
+                      + "% (" + str(np.round(getattr(stds[name1], compare_metric) * 100, 2)) + ")  >  " +
+                      "[{:.4f}%, {:.4f}%]".format(*cis[name1][compare_metric]))
+                print(" - " + name2.upper() + " = " + str(np.round(getattr(means[name2], compare_metric) * 100, 2))
+                      + "% (" + str(np.round(getattr(stds[name2], compare_metric) * 100, 2)) + ")  >  " +
+                      "[{:.4f}%, {:.4f}%]".format(*cis[name2][compare_metric]))
 
-            # Study normality with Shapiro test
-            arr1 = stats[name1][compare_metric]
-            arr2 = stats[name2][compare_metric]
-            norm1 = shapiro(arr1)[1] > compare_alpha
-            norm2 = shapiro(arr2)[1] > compare_alpha
+                # Study normality with Shapiro test
+                arr1 = stats[name1][compare_metric]
+                arr2 = stats[name2][compare_metric]
+                norm1 = shapiro(arr1)[1] > compare_alpha
+                norm2 = shapiro(arr2)[1] > compare_alpha
 
-            # Study homoscedasticity
-            if norm1 and norm2:
-                # Levene test
-                p_val = levene(arr1, arr2, center="mean")[1]
-            else:
-                # Brown–Forsythe test
-                p_val = levene(arr1, arr2, center="median")[1]
-            same_var = p_val > compare_alpha
+                # Study homoscedasticity
+                if norm1 and norm2:
+                    # Levene test
+                    p_val = levene(arr1, arr2, center="mean")[1]
+                else:
+                    # Brown–Forsythe test
+                    p_val = levene(arr1, arr2, center="median")[1]
+                same_var = p_val > compare_alpha
 
-            # Compare means
-            if norm1 and norm1:
-                # T-test if same variance, Welch's T-test (analog to T-test with Satterhwaite method) otherwise
-                p_val = ttest_ind(arr1, arr2, equal_var=same_var, alternative="greater").pvalue
-            else:
-                # Mann-Whitney U rank test
-                p_val = mannwhitneyu(arr1, arr2, alternative="greater", method="auto")[1]
-            m1_wins = p_val < compare_alpha
-            addon = "" if m1_wins else "NOT "
-            print(name1.upper() + " is " + "greater than " + name2.upper() + " with p-value = " +
-                  "{:.2e}".format(p_val) + "\n")
+                # Compare means
+                if norm1 and norm1:
+                    # T-test if same variance, Welch's T-test (analog to T-test with Satterhwaite method) otherwise
+                    p_val = ttest_ind(arr1, arr2, equal_var=same_var, alternative="greater").pvalue
+                else:
+                    # Mann-Whitney U rank test
+                    p_val = mannwhitneyu(arr1, arr2, alternative="greater", method="auto")[1]
+                m1_wins = p_val < compare_alpha
+                addon = "" if m1_wins else "NOT "
+                print(name1.upper() + " is " + "greater than " + name2.upper() + " with p-value = " +
+                      "{:.2e}".format(p_val) + "\n")

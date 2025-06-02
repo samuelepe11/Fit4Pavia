@@ -16,10 +16,13 @@ class RehabSkeletonDataset(SkeletonDataset):
     gestures = ["elbow flexion left", "elbow flexion right", "shoulder flexion left", "shoulder flexion right",
                 "shoulder abduction left", "shoulder abduction right", "shoulder forward elevation", "side tap left",
                 "side tap right"]
-    actions = correctness + gestures
-
     list_pos = ["stand", "chair", "wheelchair", "Stand-frame"]
     n_positions = len(list_pos)
+
+    actions = correctness + gestures + list_pos[:2]
+    action_labels = (correctness + ["elbow flex L", "elbow flex R", "shoulder felx L", "shoulder flex R",
+                                    "shoulder abd L", "shoulder abd R", "shoulder elev", "side tap L", "side tap R"] +
+                     list_pos[:2])
 
     def __init__(self, working_dir, desired_classes, data_perc=None, divide_pt=False, data_names=None,
                  dataset_name=None, subfolder=None, maximum_length=None, extra_dir=""):
@@ -33,6 +36,7 @@ class RehabSkeletonDataset(SkeletonDataset):
 
         # Define task
         self.is_correctness_label = np.all([c < 3 for c in desired_classes])
+        self.is_position_label = np.all([c > 10 for c in desired_classes])
 
         # Read data
         for s in self.data_files:
@@ -40,6 +44,9 @@ class RehabSkeletonDataset(SkeletonDataset):
 
             if self.is_correctness_label:
                 self.labels.append(int(s.split("_")[4]) - 1)
+            elif self.is_position_label:
+                tmp = 12 if s.split("_")[-1].strip(self.extension) == "stand" else 13
+                self.labels.append(tmp)
             else:
                 self.labels.append(int(s.split("_")[2]))
 
@@ -88,6 +95,8 @@ class RehabSkeletonDataset(SkeletonDataset):
     def __getitem__(self, ind):
         x = self.data[ind]
         y = self.labels[ind]
+        if len(np.unique(self.classes)) == 2:
+            y = self.classes.index(y)
 
         return x.astype(np.float32), float(y)
 
@@ -124,10 +133,12 @@ class RehabSkeletonDataset(SkeletonDataset):
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
-    desired_classes1 = [1, 2]
+    # desired_classes1 = [1, 2]
     # desired_classes1 = list(range(3, 12))
-    subfolder1 = "correctness_evaluation"
+    desired_classes1 = [12, 13]
+    # subfolder1 = "correctness_evaluation"
     # subfolder1 = "gesture_evaluation"
+    subfolder1 = "position_evaluation"
 
     # Analyse data of the selected class
     dataset1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, subfolder=subfolder1)

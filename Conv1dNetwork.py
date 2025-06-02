@@ -7,9 +7,12 @@ import torch.nn as nn
 # Class
 class Conv1dNetwork(nn.Module):
 
-    def __init__(self, num_classes=2, is_2d=False, binary_output=False, is_rehab=False):
+    def __init__(self, num_classes=2, is_2d=False, binary_output=False, is_rehab=False, is_position=False,
+                 only_ll=False):
         super(Conv1dNetwork, self).__init__()
         self.is_2d = is_2d
+        self.is_position = is_position
+        self.only_ll = only_ll
 
         # Define attributes
         self.in_channels = 75
@@ -92,6 +95,9 @@ class Conv1dNetwork(nn.Module):
 
     def forward(self, x, layer_interrupt=None, avoid_eval=False, is_lime=False):
         # Apply network
+        if hasattr(self, "only_ll") and self.only_ll:
+            x = x[:, :, -12:]
+
         if not is_lime or not self.is_2d:
             out = x.permute(0, 2, 1)
 
