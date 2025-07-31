@@ -475,7 +475,7 @@ if __name__ == "__main__":
     # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
     # desired_classes1 = [1, 2]  # IntelliRehabDS correctness
     desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
-    desired_classes1 = [12, 13]  # IntelliRehabDS position
+    # desired_classes1 = [12, 13]  # IntelliRehabDS position
 
     # Define the data
     train_perc = 0.7
@@ -502,7 +502,7 @@ if __name__ == "__main__":
 
     # Define the model
     folder_name1 = "models_for_generation"
-    model_name1 = "conv2d_sit_stand_angles_lowlimb"
+    model_name1 = "conv2d_angles"
     net_type1 = NetType.CONV2D
     binary_output1 = False
     normalize_input1 = True
@@ -515,8 +515,8 @@ if __name__ == "__main__":
     show_cm1 = True
     assess_calibration1 = True
     is_rehab1 = True
-    is_position1 = True
-    only_ll1 = True
+    is_position1 = False
+    only_ll1 = False
     trainer1 = NetworkTrainer(net_type=net_type1, working_dir=working_dir1, folder_name=folder_name1,
                               train_data=train_data1, test_data=test_data1, epochs=epochs1, lr=lr1,
                               binary_output=binary_output1, normalize_input=normalize_input1, use_cuda=use_cuda1,
@@ -545,7 +545,7 @@ if __name__ == "__main__":
 
     # Compare performances of the model in different datasets
     print("\n=======================================================================================================\n")
-    compare_performances = True
+    compare_performances = False
     if compare_performances:
         compare_metric = "acc"
         compare_alpha = 0.05

@@ -273,7 +273,7 @@ class Simulator:
     def load_simulator(working_dir, folder_name, simulator_name, is_rehab=False):
         results_fold = Simulator.results_fold
         if is_rehab:
-            folder_name = "rehab_" + folder_name
+            folder_name = "rehab_" + folder_name if "rehab_" not in folder_name else folder_name
             results_fold = "../IntelliRehabDS/" + results_fold
         filepath = working_dir + results_fold + folder_name + "/" + simulator_name + ".pt"
         with open(filepath, "rb") as file:

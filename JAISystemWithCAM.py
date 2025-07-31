@@ -224,11 +224,11 @@ if __name__ == "__main__":
     item_names = ["S011C002P038R002A009", "S010C002P021R002A008"]
     # item_names = ["S029C002P049R002A069", "S031C002P099R002A080"]
     target_layer1 = "conv2"
-    target_classes = range(2)
+    target_classes = [1] #range(2)
     # target_classes = range(15)
-    explainer_types = [ExplainerType.GC, ExplainerType.HRC, ExplainerType.LIME, ExplainerType.SHAP,
-                       ExplainerType.GCref, ExplainerType.HRCref]
-    show1 = False
+    explainer_types = [ExplainerType.GC]#, ExplainerType.HRC, ExplainerType.LIME, ExplainerType.SHAP,
+                       #ExplainerType.GCref, ExplainerType.HRCref]
+    show1 = True
     switch_map_format1 = False
     static_joints1 = False
     show_graphs1 = True

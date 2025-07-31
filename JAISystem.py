@@ -82,7 +82,7 @@ class JAISystem:
                 map = [np.mean(map[(i * 3):(i + 1) * 3]) for i in range(map.shape[0] // 3)]
 
             # Adjust color range
-            map = JAISystem.normalize_map(map)
+            map, _ = JAISystem.normalize_map(map)
 
         # Plot each frame
         matplotlib.use("TkAgg")

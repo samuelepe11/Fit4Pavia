@@ -248,7 +248,8 @@ class Trainer:
                 val = cm[i, j].item()
                 if for_generation:
                     val = np.round(val * 100, 2)
-                plt.text(j, i, f"{val}" + addon, ha="center", va="center", color="black", fontsize=fontsize)
+                color = "black" if i!=j else "white"
+                plt.text(j, i, f"{val}" + addon, ha="center", va="center", color=color, fontsize=fontsize)
         plt.xticks(range(len(classes)), labels, rotation=rotation)
         plt.xlabel("Predicted class")
         plt.yticks(range(len(classes)), labels, rotation=rotation)

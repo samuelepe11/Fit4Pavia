@@ -34,7 +34,8 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
         self.subj_dataset = None
         self.dim = None
 
-        self.models_dir = working_dir + self.models_folder
+        prefix = "../IntelliRehabDS/" if self.is_rehab else ""
+        self.models_dir = working_dir + prefix + self.models_folder
         self.group_dict = group_dict
         self.n_classes = len(self.dataset.classes)
 
@@ -65,9 +66,13 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                     x1, _, _ = self.normalize_data(x1)
                     x2, _, _ = self.normalize_data(x2)
                 elif "subj" in selected_feature:
-                    s1 = int(self.descr[i][9:12]) - 1
+                    if not self.is_rehab:
+                        s1 = int(self.descr[i][9:12]) - 1
+                        s2 = int(self.descr[j][9:12]) - 1
+                    else:
+                        s1 = self.dataset.list_pat.index(int(self.descr[i][:3]))
+                        s2 = self.dataset.list_pat.index(int(self.descr[j][:3]))
                     x1 = self.subj_dataset[s1, 1:]
-                    s2 = int(self.descr[j][9:12]) - 1
                     x2 = self.subj_dataset[s2, 1:]
                 else:
                     x1 = self.features_dataset[i, :-1]
@@ -105,6 +110,9 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
         return feature
 
     def aggregate_item_features(self, folder_name, use_keras=False, avoid_eval=False):
+        if self.is_rehab:
+            folder_name = "rehab_" + folder_name
+
         # Read distance files
         simulator_names = self.simulator_names
         if self.distances is None:
@@ -127,15 +135,17 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
         if self.file_name in os.listdir(model_path):
             mode = "a"
             df = pd.read_csv(model_path + "/" + self.file_name, delimiter=";")
-            if df[" is_cs"].any():
-                simulator_names = ["patient_division"]
-            simul_ids = np.unique(df[" simul_id"])
-            max_id = np.max(simul_ids) if len(simul_ids) > 0 else None
-            df = df[df[" simul_id"] != max_id]
+            max_id = {}
+            for boolean in [False, True]:
+                simul_ids = np.unique(df[df[" is_cs"] == boolean][" simul_id"])
+                max_id_tmp = np.max(simul_ids) if len(simul_ids) > 0 else None
+                max_id.update({str(boolean): max_id_tmp})
+                if max_id_tmp is not None:
+                    df = df[~((df[" is_cs"] == boolean) & (df[" simul_id"] == max_id_tmp))]
             df.to_csv(model_path + "/" + self.file_name, index=False, sep=";", encoding="utf-8")
         else:
             mode = "w"
-            max_id = None
+            max_id = {str(boolean): None for boolean in [False, True]}
         with (open(model_path + "/" + self.file_name, mode) as f):
             print("Processing features for " + folder_name + "...")
 
@@ -145,7 +155,7 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                         "avg_subj_dist; avg_feature_dist; avg_cross_corr; avg_kl_dist; avg_dtw_dist; is_train_subj; "
                         "is_test_subj; pred_class; true_class; pred_confidence; is_pred_correct; item_loss\n")
 
-            if self.n_classes == 2:
+            if self.n_classes == 2 and not self.is_rehab:
                 simulator_names = ["sit_" + s for s in simulator_names]
 
             for simulator_name in simulator_names:
@@ -165,12 +175,12 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                 if hasattr(simulator, "model_type") and simulator.model_type == NetType.TCN:
                     n_trials = n // 2
                 for simul_id in range(n_trials):
-                    if max_id is not None:
-                        if simul_id < max_id:
+                    if max_id[str(is_cs)] is not None:
+                        if simul_id < max_id[str(is_cs)]:
                             continue
                         else:
                             print("Reloaded data up to simul_id =", simul_id - 1)
-                            max_id = None
+                            max_id[str(is_cs)] = None
                     train_acc = simulator.train_stats[simul_id].acc
                     test_acc = simulator.test_stats[simul_id].acc
                     train_f1 = simulator.train_stats[simul_id].f1
@@ -187,11 +197,11 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                         trainer = Trainer.load_model(self.working_dir, folder_name, simulator_name + "/" + file)
 
                     try:
-                        train_files = [file.strip(SkeletonDataset.extension) for file in trainer.train_data.data_files]
-                        test_files = [file.strip(SkeletonDataset.extension) for file in trainer.test_data.data_files]
+                        train_files = [file.strip(self.dataset.extension) for file in trainer.train_data.data_files]
+                        test_files = [file.strip(self.dataset.extension) for file in trainer.test_data.data_files]
                     except:
-                        train_files = [file.strip(SkeletonDataset.extension) for file in trainer.descr_train]
-                        test_files = [file.strip(SkeletonDataset.extension) for file in trainer.descr_test]
+                        train_files = [file.strip(self.dataset.extension) for file in trainer.descr_train]
+                        test_files = [file.strip(self.dataset.extension) for file in trainer.descr_test]
 
                     # Get predictions
                     train_y_true, train_y_pred, train_y_prob = trainer.test(set_type=SetType.TRAINING,
@@ -208,7 +218,7 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                     all_list = train_files + test_files
                     for ind in range(len(all_list)):
                         item_name = all_list[ind]
-                        subj_id = int(item_name[9:12])
+                        subj_id = int(item_name[9:12]) if not self.is_rehab else int(item_name[:3])
                         pred_class = int(y_pred[ind])
                         true_class = int(y_true[ind])
                         pred_confidence = y_prob[ind]
@@ -240,8 +250,12 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                         avg_kl_dist = np.nanmean(kl_dist)
                         avg_dtw_dist = np.nanmean(dtw_dist)
 
-                        is_train_subj = int(item_name[9:12]) in SkeletonDataset.get_patient_ids(train_files)
-                        is_test_subj = int(item_name[9:12]) in SkeletonDataset.get_patient_ids(test_files)
+                        if not self.is_rehab:
+                            is_train_subj = int(item_name[9:12]) in SkeletonDataset.get_patient_ids(train_files)
+                            is_test_subj = int(item_name[9:12]) in SkeletonDataset.get_patient_ids(test_files)
+                        else:
+                            is_train_subj = int(item_name[:3]) in SkeletonDataset.get_patient_ids(train_files, True)
+                            is_test_subj = int(item_name[:3]) in SkeletonDataset.get_patient_ids(test_files, True)
                         strings = [item_name, simul_id, subj_id, dim_train, dim_test, is_cs, train_acc, test_acc,
                                    train_f1, test_f1, avg_subj_dist, avg_feature_dist, avg_cross_corr, avg_kl_dist,
                                    avg_dtw_dist, is_train_subj, is_test_subj, pred_class, true_class, pred_confidence,
@@ -342,45 +356,37 @@ if __name__ == "__main__":
     # Define variables
     # working_dir1 = "./../"
     working_dir1 = "D:/Fit4Pavia/read_ntu_rgbd/"
-    desired_classes1 = [8, 9]  # NTU HAR binary
-    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
-    # desired_classes1 = [1, 2]  # IntelliRehabDS correctness
+    # desired_classes1 = [8, 9]  # NTU HAR binary
+    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
+    desired_classes1 = [1, 2]  # IntelliRehabDS correctness
 
     feature_file1 = "hand_crafted_features_global.csv"
-    feature_file1 = "hand_crafted_features_global_15classes.csv"
+    # feature_file1 = "hand_crafted_features_global_15classes.csv"
     subj_file1 = "subject_features.csv"
-    is_rehab1 = False
+    is_rehab1 = True
     group_dict1 = {"C": 2, "R": 2} if not is_rehab1 else 200
 
     # Define dataset instance
-    dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, group_dict=group_dict1)
-    # dataset1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
-    #                                 maximum_length=group_dict1)
+    # dataset1 = SkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1, group_dict=group_dict1)
+    dataset1 = RehabSkeletonDataset(working_dir=working_dir1, desired_classes=desired_classes1,
+                                    maximum_length=group_dict1)
 
     # Build signal-level feature dataset
     feature_extractor1 = VarianceAnalysisFeatureExtractor(working_dir1, feature_file1, subj_file1, dataset1, group_dict1,
-                                                          is_rehab=False)
+                                                          is_rehab=is_rehab1)
     # feature_extractor1.build_feature_datasets()
 
     # Load data
-    # data1, dim1 = VarianceAnalysisFeatureExtractor.read_feature_file(working_dir=working_dir1,
-    #                                                                  feature_file=feature_extractor1.feature_names[0],
-    #                                                                  group_dict=group_dict1, is_rehab=is_rehab1,
-    #                                                                  variance_analysis_class_n=len(desired_classes1))
+    data1, dim1 = VarianceAnalysisFeatureExtractor.read_feature_file(working_dir=working_dir1,
+                                                                     feature_file=feature_extractor1.feature_names[0],
+                                                                     group_dict=group_dict1, is_rehab=is_rehab1,
+                                                                     variance_analysis_class_n=len(desired_classes1))
 
     # Build item-level features and store dataset
-    folder_name1 = "patientVSrandom_division_knn_15classes"
+    folder_name1 = "patientVSrandom_division_blstm"
     use_keras1 = False
     avoid_eval1 = False
-    # feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
+    feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)
 
     # Complement with inter subject distances
-    feature_extractor1.complement_with_subj_info(folder_name1, use_keras=use_keras1)
-
-
-
-    feature_extractor1.complement_with_subj_info("patientVSrandom_division_svm_15classes", use_keras=use_keras1)
-    feature_extractor1.complement_with_subj_info("patientVSrandom_division_rf_15classes", use_keras=use_keras1)
-    feature_extractor1.complement_with_subj_info("patientVSrandom_division_ada_15classes", use_keras=use_keras1)
-    feature_extractor1.complement_with_subj_info("patientVSrandom_division_mlp_15classes", use_keras=use_keras1)
-
+    # feature_extractor1.complement_with_subj_info(folder_name1, use_keras=use_keras1)

@@ -6,7 +6,7 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
-from scipy.special import expit
+from scipy.special import expit, softmax
 from tslearn.neighbors import KNeighborsTimeSeriesClassifier
 from tslearn.utils import to_time_series_dataset
 
@@ -140,10 +140,12 @@ class SimpleClassifierTrainer(Trainer):
                 y_prob = self.model.predict_proba(x)
             except AttributeError:
                 decision_scores = self.model.decision_function(x)
-                y_prob = expit(decision_scores)
-                y_prob = np.stack([1 - y_prob, y_prob], -1)
-                y_prob = y_prob / np.sum(y_prob, axis=1, keepdims=True)
-
+                if decision_scores.shape[1] == 2:
+                    y_prob = expit(decision_scores)
+                    y_prob = np.stack([1 - y_prob, y_prob], -1)
+                    y_prob = y_prob / np.sum(y_prob, axis=1, keepdims=True)
+                else:
+                    y_prob = softmax(decision_scores, axis=1)
             y_prob = np.array([y_prob[k, int(y_pred[k])] for k in range(len(y_pred))])
             return y_true, y_pred, y_prob
 
@@ -196,16 +198,16 @@ if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
     # desired_classes1 = [8, 9] # NTU HAR binary
-    # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99] # NTU HAR multiclass
-    desired_classes1 = [1, 2]  # IntelliRehabDS correctness
+    desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
+    # desired_classes1 = [1, 2]  # IntelliRehabDS correctness
     # desired_classes1 = list(range(3, 12))  # IntelliRehabDS gesture
 
-    is_rehab1 = True
+    is_rehab1 = False
     group_dict1 = {"C": 2, "R": 2} if not is_rehab1 else None
 
     # Read the data
     data_file = "hand_crafted_features_global.csv"
-    # data_file = "hand_crafted_features_global_15classes.csv"
+    data_file = "hand_crafted_features_global_15classes.csv"
     data_matrix, dim = FeatureExtractor.read_feature_file(working_dir=working_dir1, feature_file=data_file,
                                                           group_dict=group_dict1, is_rehab=is_rehab1)
 
@@ -220,7 +222,7 @@ if __name__ == "__main__":
     # Define the model
     folder_name1 = "tests"
     model_name1 = "prova"
-    ml_algorithm1 = MLAlgorithmType.MLP
+    ml_algorithm1 = MLAlgorithmType.SVM
 
     # Define the data for DTW KNN
     if ml_algorithm1 == MLAlgorithmType.KNN_DTW:

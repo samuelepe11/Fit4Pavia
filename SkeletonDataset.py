@@ -497,8 +497,11 @@ class SkeletonDataset(Dataset):
         return elements
 
     @staticmethod
-    def get_patient_ids(elements):
-        all_pat = [int(x[9:12]) for x in elements]
+    def get_patient_ids(elements, is_rehab=False):
+        if not is_rehab:
+            all_pat = [int(x[9:12]) for x in elements]
+        else:
+            all_pat = [int(x[:3]) for x in elements]
         unique_pat = set(all_pat)
 
         return unique_pat

@@ -24,6 +24,9 @@ class RehabSkeletonDataset(SkeletonDataset):
                                     "shoulder abd L", "shoulder abd R", "shoulder elev", "side tap L", "side tap R"] +
                      list_pos[:2])
 
+    genders = [1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, np.nan, 1, 1, 0, 0, 1, 0, 0]
+    ages = [2, 2, 1, 2, 1, 1, 1, 4, 4, 1, 5, 2, 2, 3, 1, 5, 4, 3, 4, 1, 2, 2, np.nan, 1, 1, 1, 1, 1, 1, 1]
+
     def __init__(self, working_dir, desired_classes, data_perc=None, divide_pt=False, data_names=None,
                  dataset_name=None, subfolder=None, maximum_length=None, extra_dir=""):
         super().__init__(working_dir, desired_classes, None, data_perc, divide_pt, data_names, dataset_name,
@@ -95,7 +98,7 @@ class RehabSkeletonDataset(SkeletonDataset):
     def __getitem__(self, ind):
         x = self.data[ind]
         y = self.labels[ind]
-        if len(np.unique(self.classes)) == 2:
+        if len(np.unique(self.classes)) == 2 and self.classes[0] > 10:
             y = self.classes.index(y)
 
         return x.astype(np.float32), float(y)
