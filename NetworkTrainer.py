@@ -222,6 +222,12 @@ class NetworkTrainer(Trainer):
         else:
             net = self.net
 
+        if self.net_type not in self.keras_networks:
+            net = net.to(self.device)
+            for k, v in net.__dict__.items():
+                if isinstance(v, torch.nn.Module):
+                    v.to(self.device)
+
         if set_type == SetType.TRAINING:
             data = self.train_data
             dim = self.train_dim

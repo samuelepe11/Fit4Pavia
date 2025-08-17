@@ -140,10 +140,11 @@ class SimpleClassifierTrainer(Trainer):
                 y_prob = self.model.predict_proba(x)
             except AttributeError:
                 decision_scores = self.model.decision_function(x)
-                if decision_scores.shape[1] == 2:
+                if len(decision_scores.shape) == 1 or decision_scores.shape[1] == 2:
                     y_prob = expit(decision_scores)
                     y_prob = np.stack([1 - y_prob, y_prob], -1)
-                    y_prob = y_prob / np.sum(y_prob, axis=1, keepdims=True)
+                    if len(decision_scores.shape) > 1 and decision_scores.shape[1] == 2:
+                        y_prob = y_prob / np.sum(y_prob, axis=1, keepdims=True)
                 else:
                     y_prob = softmax(decision_scores, axis=1)
             y_prob = np.array([y_prob[k, int(y_pred[k])] for k in range(len(y_pred))])
@@ -172,11 +173,14 @@ class SimpleClassifierTrainer(Trainer):
         print("ML MODEL:")
         print(self.model)
 
-    def find_data_files(self, data, feature_file=None):
+    def find_data_files(self, data, feature_file=None, is_rehab=False):
+        gd = {"C": 2, "R": 2} if not is_rehab else 200
         all_data, _ = FeatureExtractor.read_feature_file(self.working_dir, feature_file, only_descriptors=False,
-                                                         group_dict={"C": 2, "R": 2})
-        all_data_descr, _ = FeatureExtractor.read_feature_file(self.working_dir, feature_file, only_descriptors=True)
-        all_data_descr = SkeletonDataset.find_elements(all_data_descr, group_dict={"C": 2, "R": 2})
+                                                         group_dict=gd, is_rehab=is_rehab)
+        all_data_descr, _ = FeatureExtractor.read_feature_file(self.working_dir, feature_file, only_descriptors=True,
+                                                               is_rehab=is_rehab)
+        if not is_rehab:
+            all_data_descr = SkeletonDataset.find_elements(all_data_descr, group_dict=gd)
         x = data
         data_files = []
         for i in range(x.shape[0]):

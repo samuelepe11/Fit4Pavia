@@ -14,6 +14,9 @@ from PatientDivisionSimulator import PatientDivisionSimulator
 from SetType import SetType
 from NetType import NetType
 
+import torch
+torch.backends.cudnn.enabled = False
+
 
 # Class
 class VarianceAnalysisFeatureExtractor(FeatureExtractor):
@@ -167,6 +170,7 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                 # Handle previous versions of the Simulator class (no is_rehab attribute)
                 except AttributeError:
                     simulator = Simulator.load_simulator(self.working_dir, folder_name, simulator_name)
+                simulator.use_cuda = False
                 is_cs = "patient" in simulator_name
 
                 fold = model_path + "/" + simulator_name
@@ -195,6 +199,8 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
                     # Handle previous versions of the PatientDivisionSimulator class (no use_keras or is_rehab attribute)
                     except AttributeError:
                         trainer = Trainer.load_model(self.working_dir, folder_name, simulator_name + "/" + file)
+                    trainer.use_cuda = False
+                    trainer.device = torch.device('cpu')
 
                     try:
                         train_files = [file.strip(self.dataset.extension) for file in trainer.train_data.data_files]
@@ -355,7 +361,7 @@ class VarianceAnalysisFeatureExtractor(FeatureExtractor):
 if __name__ == "__main__":
     # Define variables
     # working_dir1 = "./../"
-    working_dir1 = "D:/Fit4Pavia/read_ntu_rgbd/"
+    working_dir1 = "E:/Fit4Pavia/read_ntu_rgbd/"
     # desired_classes1 = [8, 9]  # NTU HAR binary
     # desired_classes1 = [7, 8, 9, 27, 42, 43, 46, 47, 54, 59, 60, 69, 70, 80, 99]  # NTU HAR multiclass
     desired_classes1 = [1, 2]  # IntelliRehabDS correctness
@@ -383,7 +389,7 @@ if __name__ == "__main__":
                                                                      variance_analysis_class_n=len(desired_classes1))
 
     # Build item-level features and store dataset
-    folder_name1 = "patientVSrandom_division_blstm"
+    folder_name1 = "patientVSrandom_division_svm"
     use_keras1 = False
     avoid_eval1 = False
     feature_extractor1.aggregate_item_features(folder_name1, use_keras=use_keras1, avoid_eval=avoid_eval1)

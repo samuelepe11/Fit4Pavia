@@ -342,13 +342,6 @@ class Trainer:
             except AttributeError:
                 print()
 
-            if (not isinstance(network_trainer.train_data, SkeletonDataset) and
-                    "descr_train" not in network_trainer.__dict__.keys()):
-                network_trainer.descr_train = network_trainer.find_data_files(network_trainer.train_data,
-                                                                              feature_file)
-                network_trainer.descr_test = network_trainer.find_data_files(network_trainer.test_data,
-                                                                             feature_file)
-
             try:
                 if "is_2d" not in network_trainer.net.__dict__.keys():
                     # Handle previous versions of the Conv1dNetwork class (no is_2d attribute)
@@ -381,6 +374,16 @@ class Trainer:
 
             if "15" not in network_trainer.model_name and len(network_trainer.classes) != 2:
                 network_trainer.classes = [8, 9]
+
+        if is_rehab:
+            network_trainer.working_dir = working_dir
+
+        if (not isinstance(network_trainer.train_data, SkeletonDataset) and
+                "descr_train" not in network_trainer.__dict__.keys()):
+            network_trainer.descr_train = network_trainer.find_data_files(network_trainer.train_data,
+                                                                          feature_file, is_rehab=is_rehab)
+            network_trainer.descr_test = network_trainer.find_data_files(network_trainer.test_data,
+                                                                         feature_file, is_rehab=is_rehab)
 
         return network_trainer
 
