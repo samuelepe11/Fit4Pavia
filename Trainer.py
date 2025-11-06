@@ -228,11 +228,13 @@ class Trainer:
 
     @staticmethod
     def draw_multiclass_confusion_matrix(cm, classes, img_path, is_rehab=False, for_generation=False):
-        plt.figure(figsize=(8, 8))
+
         if not is_rehab:
+            plt.figure(figsize=(8, 8))
             actions = SkeletonDataset.actions
             rotation = 45
         else:
+            plt.figure(figsize=(4, 4))
             actions = RehabSkeletonDataset.action_labels
             rotation = 15
 
@@ -248,7 +250,11 @@ class Trainer:
                 val = cm[i, j].item()
                 if for_generation:
                     val = np.round(val * 100, 2)
-                color = "black" if i!=j else "white"
+
+                if not is_rehab:
+                    color = "black" if (i != j) else "white"
+                else:
+                    color = "black" if (val < 300) else "white"
                 plt.text(j, i, f"{val}" + addon, ha="center", va="center", color=color, fontsize=fontsize)
         plt.xticks(range(len(classes)), labels, rotation=rotation)
         plt.xlabel("Predicted class")

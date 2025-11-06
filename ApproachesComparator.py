@@ -252,7 +252,7 @@ class ApproachesComparator:
         for sim in [1, 2]:
             simul = self.__dict__["simulator" + str(sim)]
             for set in ["train", "test"]:
-                cm = simul.__dict__[set + "_cm_avg"]
+                cm = simul.__dict__[set + "_cm_avg"].astype(int)
                 NetworkTrainer.draw_multiclass_confusion_matrix(cm, simul.desired_classes, self.results_dir +
                                                                 simul.simulator_name + "_" + set + "_cm.png",
                                                                 is_rehab=self.is_rehab)
@@ -281,12 +281,12 @@ class ApproachesComparator:
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
-    working_dir1 = "/media/admin/WD_Elements/Samuele_Pe/Fit4Pavia/read_ntu_rgbd/"
+    # working_dir1 = "/media/admin/WD_Elements/Samuele_Pe/Fit4Pavia/read_ntu_rgbd/"
     sim_name1 = "random_division"
     sim_name2 = "patient_division"
-    folder_name1 = "patientVSrandom_division_conv2d_15classes"
+    folder_name1 = "patientVSrandom_division_tcn"
     alpha1 = 0.05
-    is_rehab1 = False
+    is_rehab1 = True
 
     # Define comparator
     comparator = ApproachesComparator(working_dir=working_dir1, folder_name=folder_name1, simulator_name1=sim_name1,
@@ -301,6 +301,6 @@ if __name__ == "__main__":
     # comparator.draw_compare_plots(desired_stats=["acc", "f1"], desired_stats_names=["Test Accuracy", "Test F1-score"])
 
     # Paper material
-    comparator.draw_compare_plots(desired_stats=["acc", "sens", "spec", "precis", "f1", "mcc"],
-                                  desired_stats_names=["Accuracy", "Sensitivity", "Specificity", "Precision", "F1-score", "MCC"])
+    #comparator.draw_compare_plots(desired_stats=["acc", "sens", "spec", "precis", "f1", "mcc"],
+    #                              desired_stats_names=["Accuracy", "Sensitivity", "Specificity", "Precision", "F1-score", "MCC"])
     comparator.draw_avg_cm()
