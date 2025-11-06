@@ -6,6 +6,7 @@ import numpy as np
 import os
 from scipy.stats import shapiro, levene, ttest_ind, mannwhitneyu
 
+from NetworkTrainer import NetworkTrainer
 from StatsHolder import StatsHolder
 from Simulator import Simulator
 from PatientDivisionSimulator import PatientDivisionSimulator
@@ -20,6 +21,7 @@ class ApproachesComparator:
     def __init__(self, working_dir, folder_name, simulator_name1, simulator_name2, alpha, is_rehab=False):
         self.working_dir = working_dir
         self.folder_name = folder_name
+        self.is_rehab = is_rehab
         if is_rehab:
             self.folder_name = "rehab_" + self.folder_name
             self.results_fold = "../IntelliRehabDS/" + self.results_fold
@@ -203,12 +205,12 @@ class ApproachesComparator:
         d1 = dict((k, self.__dict__[k + "1"]) for k in desired_stats)
         df1 = pd.DataFrame(data=d1)
         df1 = pd.melt(df1, value_vars=desired_stats, var_name="Metric type", value_name="Value")
-        df1["Training type"] = self.descr1
+        df1["Dataset split"] = "noncross-subject"
 
         d2 = dict((k, self.__dict__[k + "2"]) for k in desired_stats)
         df2 = pd.DataFrame(data=d2)
         df2 = pd.melt(df2, value_vars=desired_stats, var_name="Metric type", value_name="Value")
-        df2["Training type"] = self.descr2
+        df2["Dataset split"] = self.descr2
 
         df = pd.concat([df1, df2])
 
@@ -220,7 +222,7 @@ class ApproachesComparator:
 
         # Draw box-plot
         plt.figure(figsize=fig_size)
-        sns.boxplot(x="Metric type", y="Value", data=df, hue="Training type", palette="Greens")
+        sns.boxplot(x="Metric type", y="Value", data=df, hue="Dataset split", palette="Greens")
         plt.ylim([0, 1])
         plt.title("Statistics on the test set")
 
@@ -235,7 +237,7 @@ class ApproachesComparator:
 
         # Draw bar-plot
         plt.figure(figsize=fig_size)
-        ax = sns.barplot(x="Metric type", y="Value", data=df, hue="Training type", width=0.4,
+        ax = sns.barplot(x="Metric type", y="Value", data=df, hue="Dataset split", width=0.4,
                          errorbar=("ci", 95), capsize=0.2, palette="Greens")
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
@@ -245,6 +247,16 @@ class ApproachesComparator:
 
         plt.savefig(title_start + "_barplot.jpg", dpi=400)
         plt.close()
+
+    def draw_avg_cm(self):
+        for sim in [1, 2]:
+            simul = self.__dict__["simulator" + str(sim)]
+            for set in ["train", "test"]:
+                cm = simul.__dict__[set + "_cm_avg"]
+                NetworkTrainer.draw_multiclass_confusion_matrix(cm, simul.desired_classes, self.results_dir +
+                                                                simul.simulator_name + "_" + set + "_cm.png",
+                                                                is_rehab=self.is_rehab)
+
 
     @staticmethod
     def draw_hist(fig, stat_name, values):
@@ -269,19 +281,26 @@ class ApproachesComparator:
 if __name__ == "__main__":
     # Define variables
     working_dir1 = "./../"
+    working_dir1 = "/media/admin/WD_Elements/Samuele_Pe/Fit4Pavia/read_ntu_rgbd/"
     sim_name1 = "random_division"
     sim_name2 = "patient_division"
-    folder_name1 = "patientVSrandom_division_tcn"
+    folder_name1 = "patientVSrandom_division_conv2d_15classes"
     alpha1 = 0.05
-    is_rehab1 = True
+    is_rehab1 = False
 
     # Define comparator
     comparator = ApproachesComparator(working_dir=working_dir1, folder_name=folder_name1, simulator_name1=sim_name1,
                                       simulator_name2=sim_name2, alpha=alpha1, is_rehab=is_rehab1)
-    comparator.compare_all_stats()
+    print()
+    # comparator.compare_all_stats()
 
     # Visually compare results
-    comparator.draw_compare_plots()
+    # comparator.draw_compare_plots()
 
     # Visually compare only Accuracy and F1-score
-    comparator.draw_compare_plots(desired_stats=["acc", "f1"], desired_stats_names=["Test Accuracy", "Test F1-score"])
+    # comparator.draw_compare_plots(desired_stats=["acc", "f1"], desired_stats_names=["Test Accuracy", "Test F1-score"])
+
+    # Paper material
+    comparator.draw_compare_plots(desired_stats=["acc", "sens", "spec", "precis", "f1", "mcc"],
+                                  desired_stats_names=["Accuracy", "Sensitivity", "Specificity", "Precision", "F1-score", "MCC"])
+    comparator.draw_avg_cm()
